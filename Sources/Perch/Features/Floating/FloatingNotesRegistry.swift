@@ -155,9 +155,9 @@ final class FloatingNotesRegistry {
         return (try? context.fetch(request)) ?? []
     }
 
-    /// menubar 入口:把所有当前打开的浮窗都移到给定 UUID 的显示器。屏不存在
-    /// 直接 no-op。一次性动作 —— 不持久化,关掉浮窗再开仍按 savedFrame 摆。
-    /// `floatOnTop=on` 时浮窗跨 Space,但跨屏要主动 setFrame。
+    /// menubar 入口:把所有当前打开的浮窗都移到给定 UUID 的显示器,并**记住**每条
+    /// 便签的归属显示器 —— 关掉再开、重启后都会回到这块屏(拔屏则回退主屏、屏回来
+    /// 再归位)。屏不存在直接 no-op。`floatOnTop=on` 时浮窗跨 Space,但跨屏要主动 setFrame。
     ///
     /// 尊重当前 layout 模式:
     /// - stack / tile:直接在目标屏上重新摆 layout(原模式的视觉规则保留)。
@@ -165,6 +165,10 @@ final class FloatingNotesRegistry {
     ///   挤到同一点;源屏推不出来就退化为目标屏居中。
     func moveAllToDisplay(uuid: String) {
         guard let target = DisplayCatalog.screen(forUUID: uuid) else { return }
+        // 记住归属显示器(所有打开的浮窗)—— 这是「Move to Display」现在带记忆的核心。
+        for wc in windows.values {
+            NoteDisplayStore.setDisplayUUID(uuid, for: wc.note.id)
+        }
         switch layoutMode {
         case .stack, .tile:
             applyLayout(onScreen: target)
@@ -200,10 +204,46 @@ final class FloatingNotesRegistry {
         wc.animateFrame(NSRect(origin: newOrigin, size: frame.size))
     }
 
-    /// NSRect 交集面积,用来挑"窗主要落在哪块屏"。
-    private static func intersectionArea(_ a: NSRect, _ b: NSRect) -> CGFloat {
-        let r = a.intersection(b)
-        return max(0, r.width) * max(0, r.height)
+    /// 屏幕拓扑变化(插拔屏 / 排布调整 / 分辨率)的统一入口。AppDelegate 注册
+    /// `didChangeScreenParametersNotification` 后转过来。
+    ///
+    /// 1. 先给所有浮窗设一段抑制窗 —— 系统因拔屏把窗自动挪走会触发 windowDidMove,
+    ///    不抑制会被误当用户拖动,把归属显示器改写成兜底屏、并覆盖存档 frame,
+    ///    等于把记忆冲掉。
+    /// 2. 稍等系统把窗自己挪完(~0.35s),再把每个浮窗尽量拉回它归属的显示器。
+    func handleScreenParameterChange() {
+        for wc in windows.values {
+            wc.suppressAutoPersistForScreenChange(for: 1.5)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+            self?.repositionToAssignedDisplays()
+        }
+    }
+
+    /// 把浮窗拉回各自归属的显示器(归属屏在线且窗当前不在其上时)。
+    /// - normal:逐条独立处理。存档 frame 正好落在归属屏(抑制窗保住了拔屏前的
+    ///   精确位置)就精确还原,否则居中过去。
+    /// - stack / tile:整组一体,按组内首个可见窗的归属屏重排一次。
+    private func repositionToAssignedDisplays() {
+        switch layoutMode {
+        case .normal:
+            for wc in windows.values where wc.isWindowVisible {
+                guard let assigned = NoteDisplayStore.assignedScreen(for: wc.note.id),
+                      let frame = wc.currentFrame,
+                      DisplayCatalog.dominantScreen(for: frame) !== assigned else { continue }
+                if let saved = wc.note.savedFrame, !wc.note.isCollapsed,
+                   DisplayCatalog.dominantScreen(for: saved) === assigned {
+                    wc.animateFrame(saved)
+                } else {
+                    wc.moveToScreen(assigned)
+                }
+            }
+        case .stack, .tile:
+            guard let anchorID = displayOrder.first(where: { windows[$0]?.isWindowVisible == true }),
+                  let note = windows[anchorID]?.note,
+                  let assigned = NoteDisplayStore.assignedScreen(for: note.id) else { return }
+            applyLayout(onScreen: assigned)
+        }
     }
 
     func setFloatOnTop(_ value: Bool) {
@@ -367,11 +407,10 @@ final class FloatingNotesRegistry {
     }
 
     /// 给定一个 NSWindow 的 frame,推断它主要落在哪块屏(取交集面积最大的那块)。
-    /// 跨屏窗用面积选主屏,避免归错。
+    /// 完全在屏外返回 nil。实现集中在 `DisplayCatalog`,窗口控制器 / 归属显示器
+    /// 判定共用同一套语义。
     private static func dominantScreen(for frame: NSRect) -> NSScreen? {
-        NSScreen.screens.max { a, b in
-            intersectionArea(a.frame, frame) < intersectionArea(b.frame, frame)
-        }
+        DisplayCatalog.dominantScreen(for: frame)
     }
 
     /// 当前是否有任何浮窗(供菜单 enabled 状态用)。
@@ -457,13 +496,34 @@ final class FloatingNotesRegistry {
         let draggedScreen = screenForWindow(id: id)
         switch layoutMode {
         case .normal:
-            return
+            // 每条独立:只把被拖那条的归属显示器更新成它现在落到的屏。
+            if let note = windows[id]?.note {
+                rememberDisplay(draggedScreen, for: note)
+            }
         case .stack:
+            // 整组跟随拖动落到 draggedScreen → 整组的归属显示器都记成该屏。
+            rememberDisplayForVisibleGroup(draggedScreen)
             applyStackLayout(onScreen: draggedScreen)
         case .tile:
+            rememberDisplayForVisibleGroup(draggedScreen)
             sortDisplayOrderByCurrentPosition()
             persistDisplayOrder()
             applyTileLayout(onScreen: draggedScreen)
+        }
+    }
+
+    /// 把某条便签的「归属显示器」记成给定屏(nil / 拿不到 UUID → 不动)。
+    private func rememberDisplay(_ screen: NSScreen?, for note: Note) {
+        guard let screen, let uuid = DisplayCatalog.uuid(for: screen) else { return }
+        NoteDisplayStore.setDisplayUUID(uuid, for: note.id)
+    }
+
+    /// stack / tile 模式下整组一起落到某屏 —— 把当前**可见**的浮窗归属显示器都
+    /// 记成该屏,保持「组内每条都记得自己在这块屏」的一致性。
+    private func rememberDisplayForVisibleGroup(_ screen: NSScreen?) {
+        guard let screen, let uuid = DisplayCatalog.uuid(for: screen) else { return }
+        for wc in windows.values where wc.isWindowVisible {
+            NoteDisplayStore.setDisplayUUID(uuid, for: wc.note.id)
         }
     }
 
@@ -617,6 +677,7 @@ final class FloatingNotesRegistry {
     func deletePermanently(note: Note) {
         let context = note.managedObjectContext
         ReminderScheduler.shared.cancel(noteID: note.id)
+        NoteDisplayStore.clear(noteID: note.id)
         DispatchQueue.main.async {
             context?.delete(note)
             try? context?.save()
@@ -640,6 +701,7 @@ final class FloatingNotesRegistry {
         // 残留的提醒可能还挂着,这里再扫一遍兜底。
         for note in trashed {
             ReminderScheduler.shared.cancel(noteID: note.id)
+            NoteDisplayStore.clear(noteID: note.id)
         }
         DispatchQueue.main.async {
             for note in trashed {
@@ -671,7 +733,10 @@ final class FloatingNotesRegistry {
         // note 不带任何 predicate —— 三态(活跃 / 归档 / 回收站)全要。
         let notes = (try? context.fetch(NSFetchRequest<Note>(entityName: "Note"))) ?? []
         let groups = (try? context.fetch(NSFetchRequest<NoteGroup>(entityName: "NoteGroup"))) ?? []
-        for note in notes { ReminderScheduler.shared.cancel(noteID: note.id) }
+        for note in notes {
+            ReminderScheduler.shared.cancel(noteID: note.id)
+            NoteDisplayStore.clear(noteID: note.id)
+        }
 
         DispatchQueue.main.async {
             for note in notes { context.delete(note) }

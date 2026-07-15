@@ -21,6 +21,16 @@ final class FloatingNoteWindowController: NSObject, NSWindowDelegate {
     private var isAnimating = false
     /// 真正的用户拖动结束信号:windowDidMove 高频回调,用 debounce 200ms 攒一次。
     private var pendingUserMove: DispatchWorkItem?
+    /// 两道「抑制窗」的 CACurrentMediaTime 截止点。windowDidMove/Resize 高频回调,
+    /// 但并非每次位移都是用户拖动 —— 程序化 setFrame(初始摆位、系统拔屏搬窗)也会
+    /// 触发。在截止点之前跳过相应的自动持久化:
+    /// - `suppressUserMoveUntil`:跳过「用户拖动结束」处理(更新归属显示器 + 布局
+    ///   reflow)。初始摆位和拔屏都要设 —— 尤其归属屏当前没连、初始落到兜底屏时,
+    ///   绝不能把归属屏记忆冲成兜底屏。
+    /// - `suppressFrameSaveUntil`:额外跳过自动存 frame。**仅拔屏时设** —— 保住拔屏
+    ///   前的精确位置,插回时能原样还原。初始摆位不设(保持新便签一落位就存的旧行为)。
+    private var suppressUserMoveUntil: CFTimeInterval = 0
+    private var suppressFrameSaveUntil: CFTimeInterval = 0
     /// 折叠/展开动画期间,把内容布局冻结在展开尺寸的共享状态(见 `FoldState`)。
     private let foldState = FoldState()
     /// 折叠/展开动画用的逐帧定时器。**手动 setFrame,不用 `animator()`** —— 见
@@ -69,6 +79,24 @@ final class FloatingNoteWindowController: NSObject, NSWindowDelegate {
     func matches(window other: NSWindow) -> Bool {
         window === other
     }
+
+    /// 屏幕拓扑变化(插拔屏 / 排布 / 分辨率)时调:期间系统因搬窗触发的
+    /// windowDidMove/Resize 既不存 frame 也不改归属显示器,保住拔屏前的精确位置
+    /// 与归属屏记忆。registry.handleScreenParameterChange 对所有浮窗调。
+    func suppressAutoPersistForScreenChange(for seconds: CFTimeInterval) {
+        let until = CACurrentMediaTime() + seconds
+        suppressUserMoveUntil = until
+        suppressFrameSaveUntil = until
+    }
+
+    /// 新开/恢复窗口的初始 setFrame 也是程序化位移。只抑制「归属显示器更新」,
+    /// frame 仍照常存(保留新便签一落位就记住位置的旧行为)。
+    private func suppressUserMoveTracking(for seconds: CFTimeInterval) {
+        suppressUserMoveUntil = CACurrentMediaTime() + seconds
+    }
+
+    private var isUserMoveSuppressed: Bool { CACurrentMediaTime() < suppressUserMoveUntil }
+    private var isFrameSaveSuppressed: Bool { CACurrentMediaTime() < suppressFrameSaveUntil }
 
     /// tile 时读当前 frame 决定每张笔记占多大。
     var currentFrame: NSRect? { window?.frame }
@@ -193,17 +221,11 @@ final class FloatingNoteWindowController: NSObject, NSWindowDelegate {
         w.delegate = self
         w.isReleasedWhenClosed = false
 
-        // 优先恢复用户上次的位置/尺寸;saved frame 越界(显示器拔了)就退回 cascade。
-        if let saved = note.savedFrame, Self.frameIsOnVisibleScreen(saved) {
-            w.setFrame(saved, display: false)
-        } else if let screenFrame = (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame {
-            let cascade = CGFloat(cascadeIndex) * 28
-            let origin = NSPoint(
-                x: screenFrame.midX - defaultSize.width / 2 + cascade,
-                y: screenFrame.midY - defaultSize.height / 2 - cascade
-            )
-            w.setFrameOrigin(origin)
-        }
+        // 优先恢复用户上次的位置/尺寸,并尊重便签的「归属显示器」记忆。
+        // 初始 setFrame 会触发 windowDidMove —— 先设抑制窗,别把这次程序化摆位
+        // 误当用户拖动去改写归属显示器(尤其归属屏没连、初始落到兜底屏时)。
+        suppressUserMoveTracking(for: 0.8)
+        placeInitialFrame(w, defaultSize: defaultSize, cascadeIndex: cascadeIndex)
 
         // 折叠态:压成 collapsedHeight,锚顶部 —— savedFrame 表示的是"展开尺寸",
         // 折叠时 top edge 保持在 savedFrame.maxY,这样展开时位置不会跳。同时
@@ -217,6 +239,46 @@ final class FloatingNoteWindowController: NSObject, NSWindowDelegate {
         NSApp.activate()
 
         self.window = w
+    }
+
+    /// 决定新开/恢复窗口的初始位置,兼顾用户上次摆位与便签的「归属显示器」记忆:
+    /// - 有存档 frame:
+    ///   - 归属屏在线但存档位置不在它上面(屏排布变了 / 之前在别的屏)→ 保留尺寸,
+    ///     落到归属屏居中。
+    ///   - 存档位置仍在某块可见屏(含归属屏本身)→ 原样恢复,尊重精确位置。
+    ///   - 全在屏外(归属屏也没连)→ 落到 cascade 兜底。
+    /// - 无存档 frame:cascade 到归属屏(没指定/没连则主屏 = 内置)中心。
+    private func placeInitialFrame(_ w: NSWindow, defaultSize: NSSize, cascadeIndex: Int) {
+        let assigned = NoteDisplayStore.assignedScreen(for: note.id)
+
+        if let saved = note.savedFrame {
+            if let assigned, DisplayCatalog.dominantScreen(for: saved) !== assigned {
+                w.setFrame(Self.centeredFrame(size: saved.size, on: assigned), display: false)
+                return
+            }
+            if Self.frameIsOnVisibleScreen(saved) {
+                w.setFrame(saved, display: false)
+                return
+            }
+            // 越界(显示器拔了)→ 往下走 cascade 兜底。
+        }
+
+        let screen = assigned ?? NSScreen.main ?? NSScreen.screens.first
+        guard let visible = screen?.visibleFrame else { return }
+        let cascade = CGFloat(cascadeIndex) * 28
+        let origin = NSPoint(
+            x: visible.midX - defaultSize.width / 2 + cascade,
+            y: visible.midY - defaultSize.height / 2 - cascade
+        )
+        w.setFrameOrigin(origin)
+    }
+
+    /// 保留 `size`,在给定屏 visibleFrame 内居中;窗比屏大时钳到屏内。
+    private static func centeredFrame(size: NSSize, on screen: NSScreen) -> NSRect {
+        let v = screen.visibleFrame
+        let width = min(size.width, v.width)
+        let height = min(size.height, v.height)
+        return NSRect(x: v.midX - width / 2, y: v.midY - height / 2, width: width, height: height)
     }
 
     /// 把窗口压到 collapsedHeight,顶部锚在当前 frame 的 maxY。**调用方负责管 styleMask**
@@ -389,7 +451,10 @@ final class FloatingNoteWindowController: NSObject, NSWindowDelegate {
 
     private func scheduleFrameSave() {
         pendingFrameSave?.cancel()
-        let work = DispatchWorkItem { [weak self] in self?.flushFrameSave() }
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, !self.isFrameSaveSuppressed else { return }
+            self.flushFrameSave()
+        }
         pendingFrameSave = work
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(250), execute: work)
     }
@@ -406,6 +471,9 @@ final class FloatingNoteWindowController: NSObject, NSWindowDelegate {
         pendingUserMove?.cancel()
         let work = DispatchWorkItem { [weak self] in
             guard let self else { return }
+            // 抑制窗内(初始摆位 / 刚发生屏拓扑变化系统在搬窗)不当作用户移动结束,
+            // 免得把归属显示器记忆改写掉。
+            if self.isUserMoveSuppressed { return }
             // 鼠标还按着 → 用户没真松手,推到下一拍再看。
             if NSEvent.pressedMouseButtons != 0 {
                 self.scheduleUserMoveCallback()

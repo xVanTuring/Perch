@@ -35,6 +35,23 @@ enum DisplayCatalog {
         NSScreen.screens.first { Self.uuid(for: $0) == uuid }
     }
 
+    /// 给定一个窗口 frame,返回它主要落在哪块在线屏(取交集面积最大的一块)。
+    /// 跨屏窗按面积归主屏。**完全落在所有屏之外(交集全为 0)返回 nil** ——
+    /// 调用方据此判断「窗还在不在某块屏上」。
+    static func dominantScreen(for frame: NSRect) -> NSScreen? {
+        var best: NSScreen?
+        var bestArea: CGFloat = 0
+        for screen in NSScreen.screens {
+            let r = screen.frame.intersection(frame)
+            let area = max(0, r.width) * max(0, r.height)
+            if area > bestArea {
+                bestArea = area
+                best = screen
+            }
+        }
+        return best
+    }
+
     /// 从 NSScreen 抽 CGDirectDisplayID,再问 CoreGraphics 拿持久 UUID。
     /// 失败(虚拟屏 / 异常)返回 nil。
     static func uuid(for screen: NSScreen) -> String? {

@@ -96,6 +96,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 在启动时一气呵成,而不是一边 spawn 一边 reflow 一边再 reflow。
         floating.applyLayout()
 
+        // 显示器插拔 / 排布 / 分辨率变化:把浮窗按各自「归属显示器」记忆归位,
+        // 并在系统自动搬窗期间抑制误存(见 FloatingNotesRegistry.handleScreenParameterChange)。
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(screenParametersChanged),
+            name: NSApplication.didChangeScreenParametersNotification,
+            object: nil
+        )
+
         // 旧版数据导入完成 → 弹框问用户是否删除旧 Noticky 本地库(默认保留)。
         // 放在窗口恢复 + applyLayout 之后,modal 不挡启动恢复流程。
         if let legacyImport {
@@ -400,6 +409,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 启动时把上次还在浮窗状态的笔记自动恢复出来。`isPinned` 一字段同时表达
     /// 「当前是否有浮窗」和「下次启动是否自动显示」—— 用户手动 × 关掉就置 false,
     /// 从列表点开/新建就置 true。
+    /// 屏幕拓扑变化(插拔屏 / 排布 / 分辨率)。转给 registry 做抑制 + 归位。
+    @objc private func screenParametersChanged() {
+        floating.handleScreenParameterChange()
+    }
+
     private func restorePinnedNotes(in context: NSManagedObjectContext) {
         let request = NSFetchRequest<Note>(entityName: "Note")
         // Swift 的 NSPredicate(format:) 不认 ObjC 字面量 YES,SQLite 里 bool 是
