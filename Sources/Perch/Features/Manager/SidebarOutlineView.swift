@@ -541,12 +541,40 @@ final class GroupHeaderCellView: NSTableCellView {
         labelTrailingToEdge.isActive = true
     }
 
+    private var hiddenFromMenu = false
+    private var keyObservers: [NSObjectProtocol] = []
+
     func configure(text: String, hiddenFromMenu: Bool) {
         label.stringValue = text
-        label.textColor = hiddenFromMenu ? .secondaryLabelColor : .labelColor
+        self.hiddenFromMenu = hiddenFromMenu
+        updateColors()
         hiddenIcon.isHidden = !hiddenFromMenu
         labelTrailingToEdge.isActive = !hiddenFromMenu
         labelTrailingToIcon.isActive = hiddenFromMenu
+    }
+
+    /// 窗口失焦时适度变灰(macOS 惯例),但不像系统 group row 那样淡到看不清:
+    /// 激活 = label(已隐藏分组 secondary),失焦 = 统一 secondary。
+    private func updateColors() {
+        let isKey = window?.isKeyWindow ?? true
+        label.textColor = (isKey && !hiddenFromMenu) ? .labelColor : .secondaryLabelColor
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        keyObservers.forEach(NotificationCenter.default.removeObserver)
+        keyObservers.removeAll()
+        guard let window else { return }
+        for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification] {
+            keyObservers.append(NotificationCenter.default.addObserver(
+                forName: name, object: window, queue: .main
+            ) { [weak self] _ in self?.updateColors() })
+        }
+        updateColors()
+    }
+
+    deinit {
+        keyObservers.forEach(NotificationCenter.default.removeObserver)
     }
 }
 
