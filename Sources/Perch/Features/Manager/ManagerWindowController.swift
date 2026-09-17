@@ -14,12 +14,41 @@ final class ManagerWindowController: NSObject, NSWindowDelegate {
         self.context = context
         self.floating = floating
         super.init()
+        // Settings 里切换「管理窗口显示 Dock 图标」时,窗口开着也即时生效。
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(defaultsChanged),
+            name: UserDefaults.didChangeNotification,
+            object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func defaultsChanged() {
+        DispatchQueue.main.async { [weak self] in self?.applyActivationPolicy() }
+    }
+
+    /// LSUIElement 默认 `.accessory`(无 Dock 图标)。开关打开且窗口在时切 `.regular`,
+    /// 窗口关掉或开关关闭时切回。只在值真变化时调用,避免菜单栏闪烁。
+    private func applyActivationPolicy() {
+        let wantsDock = window != nil
+            && UserDefaults.standard.bool(forKey: SettingsKey.managerShowsDockIcon)
+        let target: NSApplication.ActivationPolicy = wantsDock ? .regular : .accessory
+        guard NSApp.activationPolicy() != target else { return }
+        NSApp.setActivationPolicy(target)
+        if target == .regular {
+            NSApp.activate(ignoringOtherApps: true)
+        }
     }
 
     func showWindow() {
         if let w = window {
             w.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
+            applyActivationPolicy()
             return
         }
 
@@ -46,6 +75,7 @@ final class ManagerWindowController: NSObject, NSWindowDelegate {
         w.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         self.window = w
+        applyActivationPolicy()
     }
 
     func windowWillClose(_ notification: Notification) {
@@ -53,5 +83,6 @@ final class ManagerWindowController: NSObject, NSWindowDelegate {
         // 订阅,不释放会重复占内存。
         window?.contentViewController = nil
         window = nil
+        applyActivationPolicy()
     }
 }

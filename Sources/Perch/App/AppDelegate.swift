@@ -466,6 +466,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         false
     }
 
+    /// 管理窗口开着且显示 Dock 图标时,点 Dock 图标把管理窗口浮上来。
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        manager.showWindow()
+        return false
+    }
+
     /// 退出 hook 必须比 windowWillClose 早 —— `applicationShouldTerminate` 在
     /// 系统开始关 windows 之前调,这时打 isTerminating flag,后续每个浮窗的
     /// windowWillClose → onClose 会跳过把 isPinned 清成 false 的写库逻辑,

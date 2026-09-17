@@ -85,6 +85,10 @@ enum LocKey: String {
     case generalMenuGrouping
     case menuGroupingNone, menuGroupingSections, menuGroupingSubmenu
     case generalTrashRetention, generalTrashRetentionDesc
+    case generalNewGroupsInMenu, generalNewGroupsInMenuDesc
+    case generalStatusLeftClick, generalStatusRightClick
+    case statusClickShowMenu, statusClickOpenManager
+    case generalManagerDockIcon, generalManagerDockIconDesc
     // General → 数据(危险区:清空全部内容)
     case generalDataSection, generalClearAll, generalClearAllDesc
     case generalClearAllConfirmTitle, generalClearAllConfirmMsg, generalClearAllConfirmButton
@@ -265,6 +269,14 @@ enum L {
         .menuGroupingNone: "Flat list",
         .menuGroupingSections: "Sections",
         .menuGroupingSubmenu: "Submenus",
+        .generalNewGroupsInMenu: "Show new groups in menu bar",
+        .generalNewGroupsInMenuDesc: "When off, groups created in Manage All Notes start hidden from the menu bar note list. Change per group via right-click.",
+        .generalStatusLeftClick: "Menu bar icon left-click",
+        .generalStatusRightClick: "Menu bar icon right-click",
+        .statusClickShowMenu: "Show menu",
+        .statusClickOpenManager: "Open Manage All Notes",
+        .generalManagerDockIcon: "Show Dock icon for Manage All Notes",
+        .generalManagerDockIconDesc: "While the Manage All Notes window is open, Perch appears in the Dock and the app switcher (⌘Tab).",
         .generalTrashRetention: "Keep deleted notes for %d days",
         .generalTrashRetentionDesc: "Notes in Trash are permanently removed after this many days. Range 7-365.",
         .generalDataSection: "Data",
@@ -507,6 +519,14 @@ enum L {
         .menuGroupingNone: "平铺列表",
         .menuGroupingSections: "分段显示",
         .menuGroupingSubmenu: "子菜单",
+        .generalNewGroupsInMenu: "新分组显示在菜单栏",
+        .generalNewGroupsInMenuDesc: "关闭后,在「管理所有便签」里新建的分组默认不出现在菜单栏的便签列表中。单个分组可右键单独切换。",
+        .generalStatusLeftClick: "菜单栏图标左键",
+        .generalStatusRightClick: "菜单栏图标右键",
+        .statusClickShowMenu: "显示菜单",
+        .statusClickOpenManager: "打开管理所有便签",
+        .generalManagerDockIcon: "管理窗口显示 Dock 图标",
+        .generalManagerDockIconDesc: "「管理所有便签」窗口打开期间,Perch 会出现在 Dock 和 ⌘Tab 应用切换器里。",
         .generalTrashRetention: "回收站保留 %d 天",
         .generalTrashRetentionDesc: "进入回收站的便签超过设定天数后会被永久删除。范围 7-365 天。",
         .generalDataSection: "数据",

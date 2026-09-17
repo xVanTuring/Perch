@@ -30,8 +30,8 @@ final class MenuBarController: NSObject {
         if let button = statusItem.button {
             button.image = Self.statusImage(updateBadge: false, for: button)
             button.target = self
-            button.action = #selector(showMenu(_:))
-            // 左右键统一一个出口,弹同一个原生 NSMenu —— 参考 Apple Stickies 的菜单样式。
+            button.action = #selector(handleClick(_:))
+            // 左右键统一一个出口,按 Settings → General 的左/右键设置分发(默认都弹菜单)。
             button.sendAction(on: [.leftMouseUp, .rightMouseUp])
         }
 
@@ -164,7 +164,24 @@ final class MenuBarController: NSObject {
         button.title = " \(count)"
     }
 
-    @objc private func showMenu(_ sender: AnyObject?) {
+    /// 右键 = rightMouseUp,或按住 Control 的左键(macOS 惯例)。两边都配成
+    /// manager 时右键强制弹菜单,保证菜单(退出 / 设置)始终有入口。
+    @objc private func handleClick(_ sender: AnyObject?) {
+        let event = NSApp.currentEvent
+        let isRight = event?.type == .rightMouseUp
+            || (event?.type == .leftMouseUp && event?.modifierFlags.contains(.control) == true)
+        let defaults = UserDefaults.standard
+        let left = StatusItemClickAction.from(defaults.string(forKey: SettingsKey.statusItemLeftClick) ?? "")
+        var right = StatusItemClickAction.from(defaults.string(forKey: SettingsKey.statusItemRightClick) ?? "")
+        if left == .manager && right == .manager { right = .menu }
+
+        switch isRight ? right : left {
+        case .menu:    showMenu(sender)
+        case .manager: manager.showWindow()
+        }
+    }
+
+    private func showMenu(_ sender: AnyObject?) {
         guard let button = statusItem.button else { return }
         // popUpContextMenu(with:event:for:) 会跟着鼠标位置弹,菜单飘到指针下面。
         // 把 menu 临时挂到 statusItem 上再 performClick,系统就会按标准位置(图标

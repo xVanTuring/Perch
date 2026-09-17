@@ -93,8 +93,13 @@ struct ManagerView: View {
             Button(L.t(.managerCreate)) {
                 let trimmed = newGroupName.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard !trimmed.isEmpty else { return }
-                _ = NoteGroup.create(in: context, name: trimmed)
+                let group = NoteGroup.create(in: context, name: trimmed)
                 try? context.save()
+                // Settings → General「新分组显示在菜单栏」关闭时,新建即隐藏。
+                if !MenuHiddenGroups.newGroupsShownByDefault {
+                    MenuHiddenGroups.setHidden(group.id, true)
+                    menuVisibilityToken &+= 1
+                }
             }
         } message: {
             Text(L.t(.managerNewGroupMessage))

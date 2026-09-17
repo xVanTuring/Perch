@@ -20,6 +20,16 @@ enum SettingsKey {
     /// 托盘菜单笔记列表的分组方式(String raw,MenuGroupingMode enum,默认 none)。
     static let menuGrouping = "Noticky.menuGrouping"
 
+    /// 新建分组是否默认出现在托盘菜单笔记列表(Bool,默认 true)。见 MenuHiddenGroups。
+    static let newGroupsShowInMenu = "Perch.newGroupsShowInMenu"
+
+    /// 状态栏图标左键 / 右键点击行为(String raw,StatusItemClickAction,默认 menu)。
+    static let statusItemLeftClick = "Perch.statusItemLeftClick"
+    static let statusItemRightClick = "Perch.statusItemRightClick"
+
+    /// 「管理所有便签」窗口打开期间是否显示 Dock 图标(Bool,默认 false)。
+    static let managerShowsDockIcon = "Perch.managerShowsDockIcon"
+
     // 新建便签默认行为
     static let defaultColorIndex = "Noticky.defaultColorIndex"   // Int (0..5,对应 StickyPalette)
     static let noteFontSize = "Noticky.noteFontSize"             // Int (12..24,编辑态 NSTextView 字号)
@@ -166,6 +176,26 @@ enum MenuBarCountMode: String, CaseIterable, Identifiable {
     }
 }
 
+/// 状态栏图标被点击时做什么。左右键各自独立配置;两边不能同时为 `manager`,
+/// 否则托盘菜单(含退出、设置)就没有入口了 —— Settings 里改一边时会把另一边拨回 menu,
+/// MenuBarController 里也兜一层。
+enum StatusItemClickAction: String, CaseIterable, Identifiable {
+    case menu
+    case manager
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .menu:    return L.t(.statusClickShowMenu)
+        case .manager: return L.t(.statusClickOpenManager)
+        }
+    }
+
+    static func from(_ raw: String) -> StatusItemClickAction {
+        StatusItemClickAction(rawValue: raw) ?? .menu
+    }
+}
+
 /// 托盘菜单笔记列表的分组方式。
 /// - `none`:一个平铺列表,不分组(默认)。
 /// - `sections`:按分组分段,段头用 `NSMenuItem.sectionHeader`(非交互小标题),
@@ -201,6 +231,10 @@ struct GeneralTab: View {
     @AppStorage(SettingsKey.doubleClickTitleToCollapse) private var doubleClickToCollapse: Bool = false
     @AppStorage(SettingsKey.menuGrouping) private var menuGroupingRaw: String = MenuGroupingMode.none.rawValue
     @AppStorage(SettingsKey.trashRetentionDays) private var trashRetentionDays: Int = TrashRetention.defaultDays
+    @AppStorage(SettingsKey.newGroupsShowInMenu) private var newGroupsShowInMenu: Bool = true
+    @AppStorage(SettingsKey.statusItemLeftClick) private var leftClickRaw: String = StatusItemClickAction.menu.rawValue
+    @AppStorage(SettingsKey.statusItemRightClick) private var rightClickRaw: String = StatusItemClickAction.menu.rawValue
+    @AppStorage(SettingsKey.managerShowsDockIcon) private var managerShowsDockIcon: Bool = false
     @ObservedObject private var loc = LocalizationManager.shared
 
     var body: some View {
@@ -242,6 +276,61 @@ struct GeneralTab: View {
             }
             .pickerStyle(.menu)
             .id("menuGroupingPicker.\(loc.current.rawValue)")  // 同其它 Picker:语言切换重建
+
+            Toggle(isOn: $newGroupsShowInMenu) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L.t(.generalNewGroupsInMenu))
+                    Text(L.t(.generalNewGroupsInMenuDesc))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            // 状态栏图标左 / 右键行为。两边不能都是「打开管理窗口」(托盘菜单会没入口),
+            // 设一边为 manager 时若另一边也是 manager,就把另一边拨回 menu。
+            Picker(L.t(.generalStatusLeftClick), selection: Binding(
+                get: { leftClickRaw },
+                set: { newValue in
+                    leftClickRaw = newValue
+                    if newValue == StatusItemClickAction.manager.rawValue,
+                       rightClickRaw == StatusItemClickAction.manager.rawValue {
+                        rightClickRaw = StatusItemClickAction.menu.rawValue
+                    }
+                }
+            )) {
+                ForEach(StatusItemClickAction.allCases) { action in
+                    Text(action.label).tag(action.rawValue)
+                }
+            }
+            .pickerStyle(.menu)
+            .id("leftClickPicker.\(loc.current.rawValue)")
+
+            Picker(L.t(.generalStatusRightClick), selection: Binding(
+                get: { rightClickRaw },
+                set: { newValue in
+                    rightClickRaw = newValue
+                    if newValue == StatusItemClickAction.manager.rawValue,
+                       leftClickRaw == StatusItemClickAction.manager.rawValue {
+                        leftClickRaw = StatusItemClickAction.menu.rawValue
+                    }
+                }
+            )) {
+                ForEach(StatusItemClickAction.allCases) { action in
+                    Text(action.label).tag(action.rawValue)
+                }
+            }
+            .pickerStyle(.menu)
+            .id("rightClickPicker.\(loc.current.rawValue)")
+
+            // ManagerWindowController 监听 UserDefaults 变化,窗口开着时切换即时生效。
+            Toggle(isOn: $managerShowsDockIcon) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L.t(.generalManagerDockIcon))
+                    Text(L.t(.generalManagerDockIconDesc))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
 
             // 语言:跟随系统 / English / 简体中文。setLanguage 是 @Published,
             // 切换瞬间所有订阅 LocalizationManager 的 view 重渲染,无需重启。
@@ -319,12 +408,12 @@ struct GeneralTab: View {
     /// 窗口按选中 tab 的 preferredContentSize 定高(见 SettingsWindowController),
     /// 且 `.scrollDisabled(true)` —— 高度不够内容会被截断,不会出滚动条。
     /// DEBUG 构建多出「填充演示数据」按钮 + 一段较长说明,560 装不下;Release
-    /// 没这段,保持 560 不动以免改动已发布布局。
+    /// 没这段。+200 容纳新分组菜单开关 / 左右键行为 / Dock 图标开关。
     private static var tabHeight: CGFloat {
         #if DEBUG
-        680
+        880
         #else
-        560
+        760
         #endif
     }
 

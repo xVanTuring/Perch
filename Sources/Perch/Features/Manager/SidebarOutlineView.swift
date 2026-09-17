@@ -524,8 +524,9 @@ final class GroupHeaderCellView: NSTableCellView {
 
         hiddenIcon.translatesAutoresizingMaskIntoConstraints = false
         hiddenIcon.image = NSImage(systemSymbolName: "eye.slash", accessibilityDescription: nil)
-        hiddenIcon.contentTintColor = .tertiaryLabelColor
-        hiddenIcon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 10, weight: .regular)
+        // tertiaryLabelColor + 10pt 在深色侧栏上几乎看不见,提到 secondary + 12pt medium。
+        hiddenIcon.contentTintColor = .secondaryLabelColor
+        hiddenIcon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 12, weight: .medium)
         hiddenIcon.toolTip = L.t(.managerHideGroupFromMenu)
         addSubview(hiddenIcon)
 
