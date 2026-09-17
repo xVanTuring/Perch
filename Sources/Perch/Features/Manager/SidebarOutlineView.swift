@@ -542,7 +542,7 @@ final class GroupHeaderCellView: NSTableCellView {
     }
 
     private var hiddenFromMenu = false
-    private var keyObservers: [NSObjectProtocol] = []
+    private lazy var keyState = WindowKeyStateObserver { [weak self] in self?.updateColors() }
 
     func configure(text: String, hiddenFromMenu: Bool) {
         label.stringValue = text
@@ -562,20 +562,37 @@ final class GroupHeaderCellView: NSTableCellView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        keyObservers.forEach(NotificationCenter.default.removeObserver)
-        keyObservers.removeAll()
-        guard let window else { return }
-        for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification] {
-            keyObservers.append(NotificationCenter.default.addObserver(
-                forName: name, object: window, queue: .main
-            ) { [weak self] _ in self?.updateColors() })
-        }
+        keyState.observe(window)
         updateColors()
     }
+}
 
-    deinit {
-        keyObservers.forEach(NotificationCenter.default.removeObserver)
+/// 监听所在窗口 key 状态变化(激活 / 失焦),回调里由 cell 自己刷新颜色。
+/// 分组头和笔记行共用。窗口变了(cell 复用 / 移出窗口)时重新挂。
+final class WindowKeyStateObserver {
+    private var observers: [NSObjectProtocol] = []
+    private let onChange: () -> Void
+
+    init(onChange: @escaping () -> Void) {
+        self.onChange = onChange
     }
+
+    func observe(_ window: NSWindow?) {
+        removeAll()
+        guard let window else { return }
+        for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification] {
+            observers.append(NotificationCenter.default.addObserver(
+                forName: name, object: window, queue: .main
+            ) { [weak self] _ in self?.onChange() })
+        }
+    }
+
+    private func removeAll() {
+        observers.forEach(NotificationCenter.default.removeObserver)
+        observers.removeAll()
+    }
+
+    deinit { removeAll() }
 }
 
 // MARK: - Custom note row view
@@ -665,7 +682,8 @@ final class NoteRowCellView: NSTableCellView {
         label.font = isEmpty
             ? NSFontManager.shared.convert(baseFont, toHaveTrait: .italicFontMask)
             : baseFont
-        label.textColor = isEmpty ? .secondaryLabelColor : .labelColor
+        self.isEmpty = isEmpty
+        updateColors()
 
         if let progress = note.taskProgress {
             pie.isHidden = false
@@ -680,5 +698,20 @@ final class NoteRowCellView: NSTableCellView {
             labelTrailingToPie.isActive = false
             labelTrailingToEdge.isActive = true
         }
+    }
+
+    private var isEmpty = false
+    private lazy var keyState = WindowKeyStateObserver { [weak self] in self?.updateColors() }
+
+    /// 同 GroupHeaderCellView:窗口失焦时标题适度变灰。空笔记本来就是 secondary。
+    private func updateColors() {
+        let isKey = window?.isKeyWindow ?? true
+        label.textColor = (isKey && !isEmpty) ? .labelColor : .secondaryLabelColor
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        keyState.observe(window)
+        updateColors()
     }
 }
