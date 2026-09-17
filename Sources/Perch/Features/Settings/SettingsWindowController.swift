@@ -58,6 +58,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         tabVC.transitionOptions = []
 
         addTab(to: tabVC, GeneralTab(),   key: .tabGeneral,   icon: "gearshape")
+        addTab(to: tabVC, MenuBarTab(),   key: .tabMenuBar,   icon: "menubar.rectangle")
         addTab(to: tabVC, CaptureTab(),   key: .tabCapture,   icon: "doc.on.clipboard")
         addTab(to: tabVC, ShortcutsTab(), key: .tabShortcuts, icon: "keyboard")
         addTab(to: tabVC, NotesTab(),     key: .tabNotes,     icon: "note.text")

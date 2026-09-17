@@ -519,8 +519,10 @@ final class GroupHeaderCellView: NSTableCellView {
         label.isBordered = false
         label.drawsBackground = false
         label.lineBreakMode = .byTruncatingTail
+        // 不挂到 `textField`:source list 的 group row 会接管 textField 的字体和颜色,
+        // 窗口失去焦点时再把它淡化到几乎看不见。自己定字体 + 颜色,激活与否一致。
+        label.font = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold)
         addSubview(label)
-        textField = label
 
         hiddenIcon.translatesAutoresizingMaskIntoConstraints = false
         hiddenIcon.image = NSImage(systemSymbolName: "eye.slash", accessibilityDescription: nil)
