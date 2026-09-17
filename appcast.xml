@@ -9,6 +9,48 @@
     <language>en</language>
     <!-- BEGIN-ITEMS (release.sh inserts new entries here, newest first) -->
     <item>
+      <title>v2.3.0</title>
+      <pubDate>Thu, 17 Sep 2026 09:47:33 +0000</pubDate>
+      <sparkle:version>16</sparkle:version>
+      <sparkle:shortVersionString>2.3.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <description xml:lang="en"><![CDATA[
+<h4>New</h4>
+<ul>
+<li><strong>Stickies remember their display</strong> — each sticky remembers which display it belongs to. Drag it to another screen and it stays there after reopening or relaunching. Unplug a display and its stickies move to the main screen; plug it back in and they return. "Move All to Display" is now remembered too.</li>
+<li><strong>Menu bar icon click actions</strong> — choose separately what left-click and right-click on the menu bar icon do: show the menu, or open Manage All Notes.</li>
+<li><strong>Dock icon for Manage All Notes</strong> — optionally show Perch in the Dock and the app switcher (⌘Tab) while the Manage All Notes window is open.</li>
+<li><strong>Default menu visibility for new groups</strong> — choose whether newly created groups appear in the menu bar note list.</li>
+<li><strong>Manager remembers the last note</strong> — Manage All Notes reopens with the note you last selected.</li>
+<li><strong>New "Menu Bar" settings tab</strong> — menu bar options moved out of General, so the General tab is shorter.</li>
+</ul>
+<h4>Improved</h4>
+<ul>
+<li>The "hidden from menu bar" icon in the manager sidebar is easier to see.</li>
+<li>Group names and note titles in the manager sidebar stay readable when the window is inactive, turning slightly gray as other macOS apps do.</li>
+</ul>
+<p><a href="https://github.com/xVanTuring/Perch/releases/tag/v2.3.0">View full release on GitHub →</a></p>
+      ]]></description>
+      <description xml:lang="zh"><![CDATA[
+<h4>新增</h4>
+<ul>
+<li><strong>便签记住所属显示器</strong> — 每条便签会记住自己所在的显示器。拖到另一块屏幕后，重新打开或重启都会回到那块屏幕；拔掉显示器时便签暂时移到主屏幕，插回后自动归位。「全部移到显示器」也会被记住。</li>
+<li><strong>菜单栏图标点击行为</strong> — 可分别设置左键和右键点击菜单栏图标时的动作：显示菜单，或打开「管理所有便签」。</li>
+<li><strong>管理窗口显示 Dock 图标</strong> — 可选在「管理所有便签」窗口打开期间，让 Perch 出现在 Dock 和 ⌘Tab 应用切换器中。</li>
+<li><strong>新分组默认是否显示在菜单栏</strong> — 可设置新建的分组是否出现在菜单栏的便签列表中。</li>
+<li><strong>管理窗口记住上次选中的笔记</strong> — 再次打开「管理所有便签」时，自动选中上次查看的笔记。</li>
+<li><strong>新增「菜单栏」设置页</strong> — 菜单栏相关选项从「通用」移出，「通用」页更简短。</li>
+</ul>
+<h4>改进</h4>
+<ul>
+<li>管理窗口侧边栏中「在菜单栏隐藏」的图标更清晰。</li>
+<li>窗口不在前台时，侧边栏的分组名和笔记标题会适度变灰，但保持清晰可读，与 macOS 其他应用一致。</li>
+</ul>
+<p><a href="https://github.com/xVanTuring/Perch/releases/tag/v2.3.0">在 GitHub 查看完整更新 →</a></p>
+      ]]></description>
+      <enclosure url="https://github.com/xVanTuring/Perch/releases/download/v2.3.0/Perch-2.3.0.zip" length="8298281" type="application/octet-stream" sparkle:edSignature="bp3Yx+wTfvm0CAT3giDAE4+A+T1lAqwCpnKTLWCpnv+VmFhn2cDK8Z3Aq4zYjOZC2048haijINBJNkvE3EtiCw==" />
+    </item>
+    <item>
       <title>v2.2.0</title>
       <pubDate>Wed, 15 Jul 2026 03:01:04 +0000</pubDate>
       <sparkle:version>15</sparkle:version>
