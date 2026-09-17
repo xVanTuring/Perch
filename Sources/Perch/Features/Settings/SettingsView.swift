@@ -30,6 +30,9 @@ enum SettingsKey {
     /// 「管理所有便签」窗口打开期间是否显示 Dock 图标(Bool,默认 false)。
     static let managerShowsDockIcon = "Perch.managerShowsDockIcon"
 
+    /// 管理窗口上次单选的笔记 UUID(String),下次打开时恢复选中。
+    static let managerLastSelectedNote = "Perch.managerLastSelectedNote"
+
     // 新建便签默认行为
     static let defaultColorIndex = "Noticky.defaultColorIndex"   // Int (0..5,对应 StickyPalette)
     static let noteFontSize = "Noticky.noteFontSize"             // Int (12..24,编辑态 NSTextView 字号)

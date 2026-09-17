@@ -30,7 +30,8 @@ struct ManagerView: View {
     /// **多选**:`List(selection:)` 给 `Binding<Set<Hashable>>` 时,系统自动支持
     /// Cmd-click(切换单条入/出选区)和 Shift-click(范围选)—— 跟 Finder/Notes
     /// 一致,不需要自己拦事件。空集合表示没选;单选时取唯一元素显示详情。
-    @State private var selection: Set<Note.ID> = []
+    /// 初值取上次单选的笔记(跨窗口关闭 / 重启),找不到的在 onAppear 里清掉。
+    @State private var selection: Set<Note.ID> = ManagerView.restoredSelection()
     /// 进 Trash 视图。Trash 不在 List selection 里(不跟 note 混选),用一个独立
     /// state 切。点击其它任何 note 会把这个清回 false(由 onChange 处理)。
     @State private var viewingTrash: Bool = false
@@ -173,6 +174,16 @@ struct ManagerView: View {
                     viewingTasks = false
                     viewingTrash = false
                     viewingArchive = false
+                }
+                // 只记单选;清空选择(切到回收站等)或多选时保留上一次的记录。
+                if new.count == 1, let id = new.first {
+                    UserDefaults.standard.set(id.uuidString, forKey: SettingsKey.managerLastSelectedNote)
+                }
+            }
+            .onAppear {
+                // 上次选中的笔记已被删除 / 归档 / 进回收站:不在 allNotes 里,清掉选择。
+                if let id = selection.first, !allNotes.contains(where: { $0.id == id }) {
+                    selection = []
                 }
             }
 
@@ -317,6 +328,12 @@ struct ManagerView: View {
     }
 
     // MARK: Actions -------------------------------------------------------------
+
+    private static func restoredSelection() -> Set<Note.ID> {
+        guard let raw = UserDefaults.standard.string(forKey: SettingsKey.managerLastSelectedNote),
+              let id = UUID(uuidString: raw) else { return [] }
+        return [id]
+    }
 
     private func createNote() {
         let note = Note.create(in: context)

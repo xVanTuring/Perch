@@ -91,6 +91,10 @@ struct SidebarOutlineView: NSViewControllerRepresentable {
         vc.outlineView.coordinator = coord
         coord.applySnapshot(snapshot, expandAll: true)
         coord.applyBindingSelection()
+        // 恢复的上次选中笔记可能在列表下方,首次建立时滚到可见。
+        if let row = vc.outlineView.selectedRowIndexes.first {
+            vc.outlineView.scrollRowToVisible(row)
+        }
         return vc
     }
 
