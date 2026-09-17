@@ -52,6 +52,14 @@ enum SettingsKey {
     /// vs 当前 SchemaVersion.current"是否一致,提醒发布前要重新 push schema
     /// 并到 CloudKit Console 把 Dev → Prod 部署一遍。终端用户 release build 看不到这块。
     static let cloudKitDeployedSchemaVersion = "Noticky.cloudKitDeployedSchemaVersion" // String
+
+    /// MCP 服务器(供 AI Agent 读写便签)相关设置,见 Settings → Agent
+    /// (`MCPServerTab`)。`mcpServerEnabled` 的开关是即时生效的 start/stop,
+    /// 不像 iCloud 那个开关需要重启。
+    static let mcpServerEnabled = "Perch.mcpServerEnabled"           // Bool,默认 false
+    static let mcpServerPort = "Perch.mcpServerPort"                 // Int,默认 8774
+    static let mcpBindAllInterfaces = "Perch.mcpBindAllInterfaces"   // Bool,默认 false(只监听 127.0.0.1)
+    static let mcpAllowWrite = "Perch.mcpAllowWrite"                 // Bool,默认 false;关闭时写类 tool 调用一律拒绝
 }
 
 /// 回收站保留天数的取值范围 + 默认值。集中在这里,SettingsView Stepper 和

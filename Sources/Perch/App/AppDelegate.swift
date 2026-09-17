@@ -34,6 +34,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let floating = FloatingNotesRegistry()
     private var manager: ManagerWindowController!
     private let settings = SettingsWindowController()
+    private var mcpServer: MCPServer!
     /// 本次启动是否已经弹过「请开启辅助功能」对话框 —— 同一进程里只引导一次,
     /// 之后没授权就静默用空 capture,避免每按一次热键骚扰一次。
     private var hasShownAccessibilityPrompt = false
@@ -69,6 +70,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menuBar = MenuBarController(context: context, floating: floating, manager: manager, settings: settings)
         capture = CaptureWindowController(context: context, floating: floating)
         installMainMenu()
+
+        // MCP 服务器:注册总是做(工具表本身没有副作用),是否真的监听端口由
+        // Settings → Agent 的开关决定 —— 默认关闭,不放行为不明的网络服务。
+        mcpServer = MCPServer(context: context, floating: floating)
+        MCPTools.registerAll(into: mcpServer)
+        if UserDefaults.standard.bool(forKey: SettingsKey.mcpServerEnabled) {
+            mcpServer.start()
+        }
 
         // 全局快捷键由 sindresorhus/KeyboardShortcuts 库管理:用户在 Settings →
         // Shortcuts 里改的快捷键库自己 persist 到 UserDefaults 并即时 re-register,

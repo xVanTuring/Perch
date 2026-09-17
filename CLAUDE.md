@@ -42,6 +42,7 @@ Sources/Perch/
 │  ├─ Capture/           # Quick-capture window + Carbon global hotkey
 │  ├─ Manager/           # Centralized management window (NavigationSplitView)
 │  └─ Settings/          # NSTabViewController-based settings + SwiftUI tabs
+├─ MCP/                  # Local MCP server (Agent access to notes) — see docs/mcp.md
 └─ Resources/            # Info.plist, entitlements
 ```
 
@@ -101,6 +102,24 @@ When bumping `SchemaVersion.current` (e.g., V1 → V2):
 - Don't sprinkle string keys; add to the enum.
 - `floatOnTop` is owned by `FloatingNotesRegistry`, not @AppStorage (it has
   side effects: must update all open windows on toggle).
+
+## MCP server (Agent access to notes)
+
+Local, hand-rolled JSON-RPC-over-HTTP server (`Sources/Perch/MCP/`, no SDK
+dependency), same approach as uni-reader's `Sources/MCP/`. Off by default;
+toggled in Settings → Agent (`MCPServerTab`). All mutations route through
+`MCPFacade` → the same `FloatingNotesRegistry`/`Note`/`NoteGroup` methods the
+GUI uses — an agent's delete is a normal soft-delete to Trash, "pin" really
+opens a sticky window, etc. Write-tier tools are gated centrally in
+`MCPCatalog.call` behind `SettingsKey.mcpAllowWrite` (default off). Full tool
+list and setup instructions: [`docs/mcp.md`](docs/mcp.md).
+
+**Gotcha**: `FloatingNotesRegistry.delete/restore/archive/unarchive` defer
+their actual field writes by one runloop tick (`DispatchQueue.main.async`) —
+see its own comments. `MCPFacade` must await its own
+`DispatchQueue.main.async` continuation (`waitForDeferredRegistryWrite()`)
+after calling into those before reading the note back, or the tool result
+reports stale pre-mutation state.
 
 ## Window framing
 

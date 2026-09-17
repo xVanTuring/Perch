@@ -67,7 +67,16 @@ enum LocKey: String {
     case sortDateEdited, sortDateCreated, sortTitle
 
     // Settings tabs
-    case tabGeneral, tabMenuBar, tabCapture, tabShortcuts, tabNotes, tabICloud, tabUpdates
+    case tabGeneral, tabMenuBar, tabCapture, tabShortcuts, tabNotes, tabICloud, tabUpdates, tabMCP
+
+    // Settings Agent (MCP server)
+    case mcpEnable, mcpEnableDesc
+    case mcpStatusRunning, mcpStatusStopped
+    case mcpPort
+    case mcpBindAll, mcpBindAllDesc
+    case mcpAllowWrite, mcpAllowWriteDesc, mcpReadOnlyHint
+    case mcpToken, mcpTokenDesc, mcpCopyToken, mcpRegenerateToken
+    case mcpClientConfigSection, mcpCliSnippetLabel, mcpJsonSnippetLabel, mcpCopyCli, mcpCopyJson
 
     // Settings Updates (Sparkle)
     case updatesAutoCheck, updatesIncludePrereleases, updatesFooter
@@ -240,7 +249,27 @@ enum L {
         .sortDateEdited: "Date Edited", .sortDateCreated: "Date Created", .sortTitle: "Title",
 
         .tabGeneral: "General", .tabMenuBar: "Menu Bar", .tabCapture: "Capture", .tabShortcuts: "Shortcuts",
-        .tabNotes: "Notes", .tabICloud: "iCloud Sync", .tabUpdates: "Updates",
+        .tabNotes: "Notes", .tabICloud: "iCloud Sync", .tabUpdates: "Updates", .tabMCP: "Agent",
+
+        .mcpEnable: "Enable MCP server",
+        .mcpEnableDesc: "Lets a local AI agent (e.g. Claude Code) read and edit your notes over a JSON-RPC HTTP endpoint on this Mac. Starts and stops immediately — no restart needed.",
+        .mcpStatusRunning: "Running on port %d",
+        .mcpStatusStopped: "Stopped",
+        .mcpPort: "Port",
+        .mcpBindAll: "Allow connections from other devices",
+        .mcpBindAllDesc: "Off (default): only this Mac can connect (127.0.0.1). On: listens on all network interfaces — anyone on your network with the token below could read or edit your notes.",
+        .mcpAllowWrite: "Allow agents to write",
+        .mcpAllowWriteDesc: "Off (default): agents can only read notes. On: agents can also create, edit, pin, archive, and delete (to Trash) notes.",
+        .mcpReadOnlyHint: "Write tools are currently disabled — connected agents can only read your notes.",
+        .mcpToken: "Access token",
+        .mcpTokenDesc: "Required as a Bearer token on every request. Stored in the Keychain. Regenerating immediately invalidates the old token.",
+        .mcpCopyToken: "Copy Token",
+        .mcpRegenerateToken: "Regenerate…",
+        .mcpClientConfigSection: "Client configuration",
+        .mcpCliSnippetLabel: "Claude Code CLI",
+        .mcpJsonSnippetLabel: "Generic JSON (mcpServers)",
+        .mcpCopyCli: "Copy CLI Command",
+        .mcpCopyJson: "Copy JSON",
 
         .updatesAutoCheck: "Automatically check for updates",
         .updatesIncludePrereleases: "Include pre-release builds (beta channel)",
@@ -490,7 +519,27 @@ enum L {
         .sortDateEdited: "编辑时间", .sortDateCreated: "创建时间", .sortTitle: "标题",
 
         .tabGeneral: "通用", .tabMenuBar: "菜单栏", .tabCapture: "抓取", .tabShortcuts: "快捷键",
-        .tabNotes: "便签", .tabICloud: "iCloud 同步", .tabUpdates: "更新",
+        .tabNotes: "便签", .tabICloud: "iCloud 同步", .tabUpdates: "更新", .tabMCP: "Agent",
+
+        .mcpEnable: "启用 MCP 服务器",
+        .mcpEnableDesc: "让本机的 AI Agent(如 Claude Code)通过 HTTP + JSON-RPC 接口读写便签。开关立即生效,不需要重启。",
+        .mcpStatusRunning: "运行中,端口 %d",
+        .mcpStatusStopped: "已停止",
+        .mcpPort: "端口",
+        .mcpBindAll: "允许其他设备连接",
+        .mcpBindAllDesc: "关闭(默认):仅本机可连接(127.0.0.1)。开启:监听所有网络接口 —— 局域网内拿到下方 token 的任何人都能读写你的便签。",
+        .mcpAllowWrite: "允许 Agent 写入",
+        .mcpAllowWriteDesc: "关闭(默认):Agent 只能读取便签。开启:Agent 还能新建、编辑、置顶、归档、删除(进回收站)便签。",
+        .mcpReadOnlyHint: "写权限当前已关闭 —— 已连接的 Agent 只能读取便签。",
+        .mcpToken: "访问令牌",
+        .mcpTokenDesc: "每次请求都需要作为 Bearer token 携带。保存在 Keychain 里。重新生成会立即让旧 token 失效。",
+        .mcpCopyToken: "复制 Token",
+        .mcpRegenerateToken: "重新生成…",
+        .mcpClientConfigSection: "客户端配置",
+        .mcpCliSnippetLabel: "Claude Code 命令行",
+        .mcpJsonSnippetLabel: "通用 JSON(mcpServers)",
+        .mcpCopyCli: "复制命令",
+        .mcpCopyJson: "复制 JSON",
 
         .updatesAutoCheck: "自动检查更新",
         .updatesIncludePrereleases: "包含预发布版本(beta 通道)",

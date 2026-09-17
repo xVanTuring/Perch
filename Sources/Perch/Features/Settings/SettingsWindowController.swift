@@ -64,6 +64,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         addTab(to: tabVC, NotesTab(),     key: .tabNotes,     icon: "note.text")
         addTab(to: tabVC, ICloudTab(),    key: .tabICloud,    icon: "icloud")
         addTab(to: tabVC, UpdatesTab(),   key: .tabUpdates,   icon: "arrow.down.circle")
+        addTab(to: tabVC, MCPServerTab(), key: .tabMCP,       icon: "network")
 
         self.tabVC = tabVC
         observeLanguageChanges()
