@@ -116,7 +116,7 @@ struct MCPServerTab: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 480, height: 760)
+        .frame(width: 760, height: 760)
         .id(loc.current)
         .onAppear { token = server.token }
     }

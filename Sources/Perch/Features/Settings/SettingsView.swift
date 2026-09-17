@@ -331,7 +331,7 @@ struct MenuBarTab: View {
         }
         .formStyle(.grouped)
         .scrollDisabled(true)
-        .frame(width: 480, height: 440)
+        .frame(width: 760,height: 440)
     }
 }
 
@@ -435,7 +435,7 @@ struct GeneralTab: View {
         }
         .formStyle(.grouped)
         .scrollDisabled(true)
-        .frame(width: 480, height: Self.tabHeight)
+        .frame(width: 760,height: Self.tabHeight)
     }
 
     /// 窗口按选中 tab 的 preferredContentSize 定高(见 SettingsWindowController),
@@ -580,7 +580,7 @@ struct CaptureTab: View {
         }
         .formStyle(.grouped)
         .scrollDisabled(true)
-        .frame(width: 480, height: heightForMode)
+        .frame(width: 760,height: heightForMode)
         // 用户切到任意自动模式且尚未授权 —— 跑一次 requestTrust 触发系统原生
         // prompt,把 Perch 注册进 TCC 让它出现在「辅助功能」列表里。
         // .clipboardOnly 同样要 AX:合成的 ⌘C 走 CGEvent,macOS 10.14+ 起没
@@ -697,7 +697,7 @@ struct ShortcutsTab: View {
         }
         .formStyle(.grouped)
         .scrollDisabled(true)
-        .frame(width: 480, height: 470)
+        .frame(width: 760,height: 470)
     }
 
     private func row(action: String, shortcut: String) -> some View {
@@ -793,7 +793,7 @@ struct NotesTab: View {
         }
         .formStyle(.grouped)
         .scrollDisabled(true)
-        .frame(width: 480, height: 300)
+        .frame(width: 760,height: 300)
     }
 }
 
@@ -868,7 +868,7 @@ struct UpdatesTab: View {
         }
         .formStyle(.grouped)
         .scrollDisabled(true)
-        .frame(width: 480, height: 360)
+        .frame(width: 760,height: 360)
     }
 
     private var lastCheckedLabel: String {
@@ -1001,7 +1001,7 @@ struct ICloudTab: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 480, height: dynamicHeight)
+        .frame(width: 760,height: dynamicHeight)
     }
 
     /// 内容多寡浮动:开关+只读 hint 时矮一些,启用+状态区时高一些。
