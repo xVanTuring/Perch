@@ -9,6 +9,40 @@
     <language>en</language>
     <!-- BEGIN-ITEMS (release.sh inserts new entries here, newest first) -->
     <item>
+      <title>v2.4.0</title>
+      <pubDate>Fri, 18 Sep 2026 18:56:23 +0000</pubDate>
+      <sparkle:version>17</sparkle:version>
+      <sparkle:shortVersionString>2.4.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <description xml:lang="en"><![CDATA[
+<h4>New</h4>
+<ul>
+<li><strong>Agent access via MCP</strong> — Perch can now run a local MCP server so AI agents (Claude Code, etc.) can read and search your notes and groups. Turn it on in the new <strong>Settings → Agent</strong> tab. Off by default.</li>
+<li><strong>Write access is opt-in</strong> — creating, editing, moving, pinning, archiving and deleting notes by an agent requires a separate "Allow agents to write" switch. Deletes go to Trash like normal, and pinning opens a real sticky window.</li>
+<li><strong>Secure by default</strong> — the server listens on this Mac only (127.0.0.1) and requires a token, which is stored in the Keychain. The Agent tab shows ready-to-copy client configuration.</li>
+</ul>
+<h4>Improved</h4>
+<ul>
+<li>The Settings window is wider so all tabs fit in the toolbar without an overflow "»" menu.</li>
+</ul>
+<p><a href="https://github.com/xVanTuring/Perch/releases/tag/v2.4.0">View full release on GitHub →</a></p>
+      ]]></description>
+      <description xml:lang="zh"><![CDATA[
+<h4>新增</h4>
+<ul>
+<li><strong>通过 MCP 让 AI 助手访问便签</strong> — Perch 现在可以在本机运行 MCP 服务，让 AI 助手（如 Claude Code）读取和搜索你的便签与分组。在新增的 <strong>设置 → Agent</strong> 页开启，默认关闭。</li>
+<li><strong>写入权限需单独开启</strong> — 助手创建、编辑、移动、置顶、归档或删除便签，需要另外打开「允许 Agent 写入」开关。删除操作同样进入回收站，置顶会真正打开便签窗口。</li>
+<li><strong>默认安全</strong> — 服务只监听本机（127.0.0.1），并需要访问令牌，令牌保存在钥匙串中。Agent 设置页提供可直接复制的客户端配置。</li>
+</ul>
+<h4>改进</h4>
+<ul>
+<li>设置窗口加宽，所有设置页都能在工具栏中直接显示，不再折叠到「»」菜单里。</li>
+</ul>
+<p><a href="https://github.com/xVanTuring/Perch/releases/tag/v2.4.0">在 GitHub 查看完整更新 →</a></p>
+      ]]></description>
+      <enclosure url="https://github.com/xVanTuring/Perch/releases/download/v2.4.0/Perch-2.4.0.zip" length="8447666" type="application/octet-stream" sparkle:edSignature="pFqxMDAKVswteYNueI0720MPoD4rQmkiZjEh3nLPtBst30mZva3MDc/bZBJwIvtO700a4HwKGJu93clx2rLOAQ==" />
+    </item>
+    <item>
       <title>v2.3.0</title>
       <pubDate>Thu, 17 Sep 2026 09:47:33 +0000</pubDate>
       <sparkle:version>16</sparkle:version>
