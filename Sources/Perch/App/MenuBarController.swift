@@ -299,7 +299,7 @@ final class MenuBarController: NSObject {
             for group in groups {
                 let activeCount = group.notes.filter { !$0.isTrashed && !$0.isArchived }.count
                 let item = NSMenuItem(
-                    title: group.name,
+                    title: Self.truncatedMenuTitle(group.name),
                     action: #selector(toggleGroupVisibility(_:)),
                     keyEquivalent: ""
                 )
@@ -495,7 +495,7 @@ final class MenuBarController: NSObject {
     private func appendSectionedNotes(_ notes: [Note], to menu: NSMenu) {
         let (groups, ungrouped) = partitionByGroup(notes)
         for (group, groupNotes) in groups {
-            menu.addItem(.sectionHeader(title: group.name))
+            menu.addItem(.sectionHeader(title: Self.truncatedMenuTitle(group.name)))
             for note in groupNotes { menu.addItem(noteMenuItem(note)) }
         }
         if !ungrouped.isEmpty {
@@ -510,7 +510,7 @@ final class MenuBarController: NSObject {
     private func appendSubmenuNotes(_ notes: [Note], to menu: NSMenu) {
         let (groups, ungrouped) = partitionByGroup(notes)
         for (group, groupNotes) in groups {
-            let parent = NSMenuItem(title: group.name, action: nil, keyEquivalent: "")
+            let parent = NSMenuItem(title: Self.truncatedMenuTitle(group.name), action: nil, keyEquivalent: "")
             parent.image = NSImage(systemSymbolName: "folder", accessibilityDescription: nil)
             let sub = NSMenu(title: group.name)
             sub.autoenablesItems = false
@@ -545,14 +545,37 @@ final class MenuBarController: NSObject {
                 ]
             )
         } else {
-            // 截断到 50 字防止菜单过宽。
-            item.title = String(title.prefix(50))
+            // 按实际渲染宽度截断(而不是字数):中文字宽约是英文两倍,按字数截
+            // 中文笔记仍会把菜单撑得很宽。放不下就尾部补 "…",完整标题放 tooltip。
+            let truncated = Self.truncatedMenuTitle(title)
+            item.title = truncated
+            if truncated != title { item.toolTip = title }
         }
 
         // 当前有可见浮窗的笔记打个勾,直观看到当前显示状态。用真实可见性而非
         // isPinned —— hideAll / 分组切换藏起来的窗 isPinned 还是 true,但不该再打勾。
         item.state = floating.isVisible(note: note) ? .on : .off
         return item
+    }
+
+    /// 菜单项标题的最大渲染宽度(pt,不含图标/勾选列)。
+    private static let maxMenuTitleWidth: CGFloat = 260
+
+    /// 用菜单字体量宽度,超过 `maxMenuTitleWidth` 就二分找出能放下的最长前缀
+    /// 并补 "…"。按 Character(字素簇)切,不会把 emoji / 组合字符切坏。
+    static func truncatedMenuTitle(_ title: String, maxWidth: CGFloat = maxMenuTitleWidth) -> String {
+        let attrs: [NSAttributedString.Key: Any] = [.font: NSFont.menuFont(ofSize: 0)]
+        func width(_ s: String) -> CGFloat { (s as NSString).size(withAttributes: attrs).width }
+        guard width(title) > maxWidth else { return title }
+
+        let chars = Array(title)
+        var lo = 0, hi = chars.count
+        while lo < hi {
+            let mid = (lo + hi + 1) / 2
+            let candidate = String(chars[0..<mid]).trimmingCharacters(in: .whitespaces) + "…"
+            if width(candidate) <= maxWidth { lo = mid } else { hi = mid - 1 }
+        }
+        return String(chars[0..<lo]).trimmingCharacters(in: .whitespaces) + "…"
     }
 
     private func paletteIcon(for palette: StickyPalette) -> NSImage {
