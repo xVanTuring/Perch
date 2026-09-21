@@ -37,8 +37,8 @@ Sources/Perch/
 ├─ Features/
 │  ├─ Floating/          # Sticky note windows (StickyPanel, FloatingNoteWindow,
 │  │                       StickyPalette)
-│  ├─ Notes/             # Editors: PlainTextEditor (NSTextView wrap),
-│  │                       MarkdownNoteEditor (Textual + edit toggle)
+│  ├─ Notes/             # MarkdownEngineNoteEditor (the one editor), NoteFormatMenu
+│  │                       (right-click Format), Images/ (see "Note images")
 │  ├─ Capture/           # Quick-capture window + Carbon global hotkey
 │  ├─ Manager/           # Centralized management window (NavigationSplitView)
 │  └─ Settings/          # NSTabViewController-based settings + SwiftUI tabs
@@ -120,6 +120,47 @@ see its own comments. `MCPFacade` must await its own
 `DispatchQueue.main.async` continuation (`waitForDeferredRegistryWrite()`)
 after calling into those before reading the note back, or the tool result
 reports stale pre-mutation state.
+
+## Note images
+
+Pasted images and `![alt](https://…)` images, rendered by the engine through one
+`EmbeddedImageProvider` (`NoteImageProvider`, `Features/Notes/Images/`).
+
+- **Reference in the note text**: `![[name|UUID]]` (engine-native; a trailing
+  `|300` sets the display width). The UUID is the `NoteImage.id`. The raw text is
+  what MCP agents and titles see (`Note.stripMarkdownMarkers` reduces it to `name`).
+- **Storage**: Core Data entity `NoteImage` (SchemaV5) with `data` on external binary
+  storage, so it syncs through CloudKit as a CKAsset. There is **no relationship** to
+  `Note` — references live only in the text. `ownerNoteID` is a cleanup hint, not a key.
+- **Remote images** (`RemoteImageLoader`): https only (ATS blocks http), cached in
+  `~/Library/Caches/tech.xvanturing.Perch/RemoteImages`. The engine's image API is
+  synchronous, so a miss returns nil and the provider bumps `revision` when the
+  download lands; the editor observes it and the engine re-fetches.
+- **Paste** (`NoteImagePaste`, wired to the engine's `onPasteImage`): image files win;
+  a bitmap flavor counts only when the pasteboard has no real text (Excel cells carry
+  both) — a lone URL is not "text"; PDF flavors are ignored on purpose.
+- **Cleanup happens only when a note is permanently deleted** — the four paths in
+  `FloatingNotesRegistry` (`deletePermanently`, `emptyTrash`, `clearAll`,
+  `purgeExpiredTrash`). Take `candidates(for:)` **before** deleting, call
+  `removeUnreferenced` **after** saving. Candidates = images referenced in those notes'
+  text + images whose `ownerNoteID` is one of them; an image is deleted only if no
+  remaining note (trash and archive included) still references it.
+  **Do not add a periodic whole-library orphan sweep**: on a fresh device the image
+  records can arrive before the notes that reference them, the sweep would delete them,
+  and the deletion syncs out and cannot be undone. Images orphaned by editing stay until
+  their owner note is deleted.
+- **Backups must carry the external data**: Core Data keeps large blobs in a hidden
+  `.<store>_SUPPORT/_EXTERNAL_DATA` folder next to the sqlite. `NoteIO.exportAllSQLite`
+  turns external storage off for its export model (single self-contained file);
+  `importSQLite` and `PersistenceController.backupStore` copy that folder. Anything new
+  that copies the store files needs the same.
+- **CloudKit**: SchemaV5 adds a record type. Before shipping a release, run Settings →
+  iCloud Sync → "Initialize Cloud schema (Development)" from a Debug build, then deploy
+  Development → Production in the CloudKit Console. Otherwise the release build's
+  `NoteImage` uploads are silently dropped.
+- **Not done yet**: dragging image files into a note (the engine's text view registers
+  file-drag types itself and has no hook — needs an engine change), and Markdown export
+  including images (should export to a folder with the images beside the notes).
 
 ## Window framing
 
