@@ -185,7 +185,7 @@ enum LocKey: String {
     case noteColor
 
     // 编辑器右键「格式」菜单(见 NoteFormatMenu)
-    case editorFormat, editorBold, editorItalic
+    case editorFormat, editorBold, editorItalic, editorHighlight
     case editorHeading, editorLists, editorBullet, editorNumbered
 
     // File menu IO(md/txt 文件 → 新便签)
@@ -461,6 +461,7 @@ enum L {
         .colorRainbow: "Rainbow",
         .noteColor: "Color",
         .editorFormat: "Format", .editorBold: "Bold", .editorItalic: "Italic",
+        .editorHighlight: "Highlight",
         .editorHeading: "Heading", .editorLists: "Lists",
         .editorBullet: "Bullet", .editorNumbered: "Numbered",
         .fileImport: "Import…",
@@ -734,6 +735,7 @@ enum L {
         .colorRainbow: "炫彩",
         .noteColor: "颜色",
         .editorFormat: "格式", .editorBold: "加粗", .editorItalic: "斜体",
+        .editorHighlight: "高亮",
         .editorHeading: "标题", .editorLists: "列表",
         .editorBullet: "无序列表", .editorNumbered: "有序列表",
         .fileImport: "导入…",

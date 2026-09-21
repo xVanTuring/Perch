@@ -41,9 +41,10 @@ struct MarkdownEngineNoteEditor: View {
         // 列表每级缩进。engine 默认 27.5pt 是给宽编辑器调的;便签窗很窄,
         // 列表项(尤其嵌套/换行 hang)左边空白显得太大。收紧到 16pt。
         config.lists.indentPerLevel = 16
-        // 引擎 0.10.0 起 `~~删除线~~` 不再是核心语法,不注册就按普通文本显示。
-        // 注册后渲染与旧版(0.5.0 核心内置)完全一致。
-        config.extensions = [StrikethroughExtension()]
+        // 引擎 0.10.0 起 `~~删除线~~` 和 `==高亮==` 不再是核心语法,不注册就按普通
+        // 文本显示。删除线注册后与旧版(0.5.0 核心内置)渲染一致;高亮是新增支持,
+        // 可与加粗/斜体/删除线/链接嵌套(`**==x==**`、`==**x**==` 等)。
+        config.extensions = [StrikethroughExtension(), HighlightExtension()]
         return config
     }
 

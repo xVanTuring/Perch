@@ -15,7 +15,7 @@ struct NoteFormatMenu {
     let documentId: String
 
     private enum Action: String {
-        case bold, italic, heading, bullet, numbered
+        case bold, italic, highlight, heading, bullet, numbered
     }
 
     private func name(_ action: Action) -> Notification.Name {
@@ -28,6 +28,7 @@ struct NoteFormatMenu {
             applyBoldRequest: name(.bold),
             applyItalicRequest: name(.italic),
             applyHeadingRequest: name(.heading),
+            applyHighlightRequest: name(.highlight),
             applyUnorderedListRequest: name(.bullet),
             applyOrderedListRequest: name(.numbered)
         )
@@ -46,6 +47,7 @@ struct NoteFormatMenu {
             submenu(L.t(.editorFormat), [
                 item(L.t(.editorBold), .bold),
                 item(L.t(.editorItalic), .italic),
+                item(L.t(.editorHighlight), .highlight),
             ]),
             submenu(L.t(.editorHeading), (1...3).map { level in
                 item("H\(level)", .heading, userInfo: ["level": level])
