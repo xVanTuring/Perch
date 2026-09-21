@@ -103,10 +103,13 @@ enum NoteIO {
         // 已存在的非空 sqlite 路径 addPersistentStore 会失败,先清掉三件套。
         removeStoreFiles(at: url)
 
-        let container = NSPersistentContainer(
-            name: "PerchExport",
-            managedObjectModel: CoreDataSchema.currentModel()
-        )
+        // 便签图片(V5)默认走外部二进制存储:大的图片数据放在 sqlite 旁边的隐藏目录
+        // (`.<库名>_SUPPORT`),那样导出就不再是「单文件」—— 只拷走 .sqlite 会丢图。
+        // 导出用的 model 关掉外部存储,让图片数据直接进 sqlite,文件保持自包含。
+        let exportModel = CoreDataSchema.currentModel()
+        exportModel.entitiesByName["NoteImage"]?.attributesByName["data"]?
+            .allowsExternalBinaryDataStorage = false
+        let container = NSPersistentContainer(name: "PerchExport", managedObjectModel: exportModel)
         guard let desc = container.persistentStoreDescriptions.first else { return nil }
         desc.url = url
         desc.type = NSSQLiteStoreType
@@ -146,6 +149,10 @@ enum NoteIO {
             copyNoteFields(from: n, to: copy)
             if let gid = n.group?.id, let g = groupMap[gid] { copy.group = g }
         }
+        // 便签图片(V5):正文里只有 `![[名称|UUID]]` 引用,图片数据在 NoteImage 里,
+        // 不一起带上的话备份恢复后所有图片都找不到。
+        let images = (try? sourceContext.fetch(NSFetchRequest<NoteImage>(entityName: "NoteImage"))) ?? []
+        for image in images { copyImage(from: image, to: NoteImage(context: dest)) }
 
         do {
             try dest.save()
@@ -242,7 +249,21 @@ enum NoteIO {
             importedNotes += 1
         }
 
-        if importedNotes > 0 || importedGroups > 0 {
+        // 便签图片:已有相同 id 的不导入。旧版本(V4 及以前)导出的备份没有这个实体,
+        // 迁移后就是空的,这里自然什么都不做。
+        let srcImages = (try? src.fetch(NSFetchRequest<NoteImage>(entityName: "NoteImage"))) ?? []
+        var knownImageIDs = Set(
+            ((try? context.fetch(NSFetchRequest<NoteImage>(entityName: "NoteImage"))) ?? []).compactMap(\.id)
+        )
+        var importedImages = 0
+        for image in srcImages {
+            guard let id = image.id, !knownImageIDs.contains(id) else { continue }
+            copyImage(from: image, to: NoteImage(context: context))
+            knownImageIDs.insert(id)
+            importedImages += 1
+        }
+
+        if importedNotes > 0 || importedGroups > 0 || importedImages > 0 {
             try? context.save()
         }
         return (importedNotes, importedGroups, toShow)
@@ -264,6 +285,14 @@ enum NoteIO {
         dst.trashedAt = src.trashedAt
         dst.isArchived = src.isArchived
         dst.archivedAt = src.archivedAt
+    }
+
+    private static func copyImage(from src: NoteImage, to dst: NoteImage) {
+        dst.id = src.id
+        dst.data = src.data
+        dst.fileExtension = src.fileExtension
+        dst.createdAt = src.createdAt
+        dst.ownerNoteID = src.ownerNoteID
     }
 
     /// 删掉 sqlite 三件套(.sqlite/.sqlite-shm/.sqlite-wal)。导出前清理目标用。
@@ -294,6 +323,13 @@ enum NoteIO {
                     at: from,
                     to: dir.appendingPathComponent(url.lastPathComponent + suffix)
                 )
+            }
+            // 直接拷来的「活」库,大的图片数据在旁边的 `.<库名>_SUPPORT` 目录里(外部二进制
+            // 存储),不一起拷的话那些图片读出来是空的。
+            let supportName = "." + url.deletingPathExtension().lastPathComponent + "_SUPPORT"
+            let support = url.deletingLastPathComponent().appendingPathComponent(supportName)
+            if fm.fileExists(atPath: support.path) {
+                try fm.copyItem(at: support, to: dir.appendingPathComponent(supportName))
             }
             return dest
         } catch {

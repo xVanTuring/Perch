@@ -6,18 +6,22 @@ import UniformTypeIdentifiers
 ///
 /// 给引擎的 `onPasteImage` 用:返回要插入的文本;返回 nil 表示「这次粘贴不是图片」,
 /// 引擎会继续按文本粘贴。粘贴的每一次都会先问到这里,所以判断要便宜、要保守。
+///
+/// `ownerNoteID` 是正在编辑的便签 id,记在图片上,便签被永久删除时用来清理图片。
 enum NoteImagePaste {
     private static let bitmapTypes: [NSPasteboard.PasteboardType] =
         [UTType.png, .tiff, .jpeg, .heic, .gif].map { NSPasteboard.PasteboardType($0.identifier) }
 
-    static func embed(from pasteboard: NSPasteboard, store: NoteImageStore = .shared) -> String? {
+    static func embed(
+        from pasteboard: NSPasteboard, ownerNoteID: UUID?, store: NoteImageStore = .shared
+    ) -> String? {
         // 复制的是文件(Finder):只处理图片文件;别的文件(如 .md)交回引擎按文本处理。
         // 这一步必须在位图判断之前,Finder 复制文件时还会带上文件名文本。
         let fileURLs = pasteboard.readObjects(
             forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]
         ) as? [URL] ?? []
         if !fileURLs.isEmpty {
-            return embeds(forFileURLs: fileURLs, store: store)
+            return embeds(forFileURLs: fileURLs, ownerNoteID: ownerNoteID, store: store)
         }
 
         // 位图:截图、预览里的复制、网页里「拷贝图片」。只认真正的位图格式,
@@ -34,7 +38,9 @@ enum NoteImagePaste {
 
         guard let png = PasteboardImageReader.imageData(from: pasteboard) else { return nil }
         do {
-            let stored = try store.importImageData(png, fileExtension: "png", name: pastedName())
+            let stored = try store.importImageData(
+                png, fileExtension: "png", name: pastedName(), ownerNoteID: ownerNoteID
+            )
             return markdown(for: stored)
         } catch {
             NSLog("Perch image paste failed: \(error)")
@@ -43,9 +49,11 @@ enum NoteImagePaste {
         }
     }
 
-    /// 把若干文件复制进存储,返回要插入的文本(多张之间空一行);没有图片文件时返回 nil。
+    /// 把若干文件存进图片库,返回要插入的文本(多张之间空一行);没有图片文件时返回 nil。
     /// 拖入文件也走这里。
-    static func embeds(forFileURLs urls: [URL], store: NoteImageStore = .shared) -> String? {
+    static func embeds(
+        forFileURLs urls: [URL], ownerNoteID: UUID?, store: NoteImageStore = .shared
+    ) -> String? {
         let imageFiles = urls.filter {
             UTType(filenameExtension: $0.pathExtension)?.conforms(to: .image) == true
         }
@@ -54,7 +62,7 @@ enum NoteImagePaste {
         var result: [String] = []
         for url in imageFiles {
             do {
-                result.append(markdown(for: try store.importFile(url)))
+                result.append(markdown(for: try store.importFile(url, ownerNoteID: ownerNoteID)))
             } catch {
                 NSLog("Perch image import failed (\(url.lastPathComponent)): \(error)")
                 NSSound.beep()

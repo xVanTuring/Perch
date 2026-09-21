@@ -55,6 +55,8 @@ struct MarkdownEngineNoteEditor: View {
 
     var body: some View {
         let format = formatMenu
+        // 粘贴的图片记在当前便签名下,便签被永久删除时据此清理图片。
+        let ownerNoteID = UUID(uuidString: documentId)
         NativeTextViewWrapper(
             text: $text,
             configuration: configuration,
@@ -64,7 +66,7 @@ struct MarkdownEngineNoteEditor: View {
             isEditable: true,
             // 粘贴板里有图片就复制进内部存储并插入 `![[名称|UUID]]`;否则返回 nil,
             // 引擎照常按文本粘贴。见 NoteImagePaste。
-            onPasteImage: { NoteImagePaste.embed(from: $0) },
+            onPasteImage: { NoteImagePaste.embed(from: $0, ownerNoteID: ownerNoteID) },
             onBuildContextMenu: { menu, _ in format.decorate(menu) }
         )
     }

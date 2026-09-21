@@ -678,9 +678,12 @@ final class FloatingNotesRegistry {
         let context = note.managedObjectContext
         ReminderScheduler.shared.cancel(noteID: note.id)
         NoteDisplayStore.clear(noteID: note.id)
+        // 删除前先记下它用到的图片;保存之后再清掉不再被任何便签引用的。
+        let images = NoteImageStore.shared.candidates(for: [note])
         DispatchQueue.main.async {
             context?.delete(note)
             try? context?.save()
+            NoteImageStore.shared.removeUnreferenced(images)
         }
     }
 
@@ -703,11 +706,13 @@ final class FloatingNotesRegistry {
             ReminderScheduler.shared.cancel(noteID: note.id)
             NoteDisplayStore.clear(noteID: note.id)
         }
+        let images = NoteImageStore.shared.candidates(for: trashed)
         DispatchQueue.main.async {
             for note in trashed {
                 context.delete(note)
             }
             try? context.save()
+            NoteImageStore.shared.removeUnreferenced(images)
         }
     }
 
@@ -742,6 +747,8 @@ final class FloatingNotesRegistry {
             for note in notes { context.delete(note) }
             for group in groups { context.delete(group) }
             try? context.save()
+            // 所有便签都没了,图片一并删光。
+            NoteImageStore.shared.removeAll()
         }
         return (notes.count, groups.count)
     }
@@ -768,11 +775,13 @@ final class FloatingNotesRegistry {
             NSNumber(value: true), cutoff as NSDate
         )
         guard let expired = try? context.fetch(request), !expired.isEmpty else { return }
+        let images = NoteImageStore.shared.candidates(for: expired)
         for note in expired {
             ReminderScheduler.shared.cancel(noteID: note.id)
             context.delete(note)
         }
         try? context.save()
+        NoteImageStore.shared.removeUnreferenced(images)
         NSLog("Perch: purged %d expired trash note(s)", expired.count)
     }
 
