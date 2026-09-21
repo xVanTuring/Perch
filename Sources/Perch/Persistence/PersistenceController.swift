@@ -160,6 +160,13 @@ final class PersistenceController {
                 let to = backupDir.appendingPathComponent(from.lastPathComponent)
                 try fm.copyItem(at: from, to: to)
             }
+            // 便签图片的大二进制放在 sqlite 旁边的 `.<库名>_SUPPORT` 目录(外部二进制存储),
+            // 不一起备份的话,从备份恢复出来的图片是空的。
+            let supportName = "." + storeURL.deletingPathExtension().lastPathComponent + "_SUPPORT"
+            let support = storeURL.deletingLastPathComponent().appendingPathComponent(supportName)
+            if fm.fileExists(atPath: support.path) {
+                try fm.copyItem(at: support, to: backupDir.appendingPathComponent(supportName))
+            }
             NSLog("Perch: backed up sqlite to %@", backupDir.path)
             return backupDir
         } catch {

@@ -33,9 +33,87 @@ enum SchemaMigrationTester {
         }
     }
 
-    /// 入口。返回结果 + 清理临时文件。同步执行,可能耗时(秒级 IO),
-    /// 调用方记得放后台 thread。
+    /// 入口。依次跑「加字段」和「V4 → V5 新增实体」两个用例,任何一个失败就返回
+    /// 失败。同步执行,可能耗时(秒级 IO),调用方记得放后台 thread。
     static func run() -> Result {
+        let addField = runAddFieldCase()
+        guard addField.isPassed else { return addField }
+        let addEntity = runV4ToV5Case()
+        guard addEntity.isPassed else { return addEntity }
+        return .passed(message: "\(addField.message);\(addEntity.message)")
+    }
+
+    /// V4 → V5:新增 `NoteImage` 实体。和上面的合成用例不同,这里旧库用**真实的**
+    /// `SchemaV4` model 写,再用 `SchemaV5` + lightweight migration 重开 —— 就是
+    /// 用户升级时实际发生的事。断言:旧便签一条不少,新实体能写入并读回(包括大到
+    /// 会走外部二进制存储的数据)。
+    private static func runV4ToV5Case() -> Result {
+        let storeURL = makeTempStoreURL()
+        defer { cleanup(storeURL) }
+
+        do {
+            let oldCoordinator = NSPersistentStoreCoordinator(managedObjectModel: SchemaV4.makeModel())
+            try oldCoordinator.addPersistentStore(
+                ofType: NSSQLiteStoreType, configurationName: nil, at: storeURL, options: nil
+            )
+            let oldContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+            oldContext.persistentStoreCoordinator = oldCoordinator
+
+            let sampleIDs = (0..<3).map { _ in UUID() }
+            for (idx, id) in sampleIDs.enumerated() {
+                let note = NSEntityDescription.insertNewObject(forEntityName: "Note", into: oldContext)
+                note.setValue(id, forKey: "id")
+                note.setValue("v4 note #\(idx)", forKey: "content")
+                note.setValue(Date(), forKey: "createdAt")
+                note.setValue(Date(), forKey: "updatedAt")
+            }
+            try oldContext.save()
+            for store in oldCoordinator.persistentStores { try oldCoordinator.remove(store) }
+
+            let newCoordinator = NSPersistentStoreCoordinator(managedObjectModel: SchemaV5.makeModel())
+            try newCoordinator.addPersistentStore(
+                ofType: NSSQLiteStoreType, configurationName: nil, at: storeURL,
+                options: [
+                    NSMigratePersistentStoresAutomaticallyOption: true,
+                    NSInferMappingModelAutomaticallyOption: true,
+                ]
+            )
+            let newContext = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+            newContext.persistentStoreCoordinator = newCoordinator
+
+            let notes = try newContext.fetch(NSFetchRequest<NSManagedObject>(entityName: "Note"))
+            guard Set(notes.compactMap { $0.value(forKey: "id") as? UUID }) == Set(sampleIDs) else {
+                return .failed(message: "V4→V5 迁移后便签丢失或 UUID 不一致(期望 \(sampleIDs.count) 条,实际 \(notes.count) 条)")
+            }
+
+            // 新实体可用。300KB 超过 Core Data 外部二进制存储的阈值(约 100KB),
+            // 确保走的是外部文件那条路径。
+            let payload = Data(repeating: 0xAB, count: 300_000)
+            let imageID = UUID()
+            let image = NSEntityDescription.insertNewObject(forEntityName: "NoteImage", into: newContext)
+            image.setValue(imageID, forKey: "id")
+            image.setValue(payload, forKey: "data")
+            image.setValue("png", forKey: "fileExtension")
+            image.setValue(Date(), forKey: "createdAt")
+            try newContext.save()
+            newContext.reset()
+
+            let images = try newContext.fetch(NSFetchRequest<NSManagedObject>(entityName: "NoteImage"))
+            guard images.count == 1,
+                  images[0].value(forKey: "id") as? UUID == imageID,
+                  images[0].value(forKey: "data") as? Data == payload else {
+                return .failed(message: "V4→V5 迁移后 NoteImage 写入 / 读回不一致")
+            }
+
+            for store in newCoordinator.persistentStores { try newCoordinator.remove(store) }
+            return .passed(message: "V4→V5 迁移验证通过(\(sampleIDs.count) 条便签完整保留,NoteImage 可读写)")
+        } catch {
+            return .failed(message: "V4→V5 迁移测试抛异常:\((error as NSError).localizedDescription)")
+        }
+    }
+
+    /// 合成的「加字段」用例:旧库缺 isCollapsed,新库(SchemaV1)有。
+    private static func runAddFieldCase() -> Result {
         let storeURL = makeTempStoreURL()
         defer { cleanup(storeURL) }
 

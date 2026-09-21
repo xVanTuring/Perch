@@ -11,9 +11,10 @@ enum SchemaVersion: String, CaseIterable {
     case v2
     case v3
     case v4
+    case v5
 
     /// 当前发布版本。改这个之前先把 SchemaV{N+1}.swift 写好。
-    static let current: SchemaVersion = .v4
+    static let current: SchemaVersion = .v5
 
     func makeModel() -> NSManagedObjectModel {
         switch self {
@@ -21,6 +22,7 @@ enum SchemaVersion: String, CaseIterable {
         case .v2: return SchemaV2.makeModel()
         case .v3: return SchemaV3.makeModel()
         case .v4: return SchemaV4.makeModel()
+        case .v5: return SchemaV5.makeModel()
         }
     }
 }

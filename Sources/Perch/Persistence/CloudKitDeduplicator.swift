@@ -1,7 +1,7 @@
 import Foundation
 import CoreData
 
-/// 在 CloudKit import 成功后扫一遍 Note / NoteGroup,把同 UUID 的重复 record
+/// 在 CloudKit import 成功后扫一遍 Note / NoteGroup / NoteImage,把同 UUID 的重复 record
 /// 合并掉。Apple 官方 sample "Synchronizing a Local Store to the Cloud" 推荐的
 /// 兜底 pattern,因为 CloudKit 不支持 unique constraint,sync race / 本地 store
 /// 重建会让同一逻辑 UUID 在云上留多个 CKRecord,import 全拉下来本地就有多份。
@@ -67,13 +67,14 @@ final class CloudKitDeduplicator {
 
             let removedNotes = self.dedupNotes(in: context)
             let removedGroups = self.dedupGroups(in: context)
-            let removed = removedNotes + removedGroups
+            let removedImages = self.dedupImages(in: context)
+            let removed = removedNotes + removedGroups + removedImages
             guard removed > 0 else { return }
 
             do {
                 try context.save()
-                NSLog("Perch: dedup removed %d note(s) + %d group(s) after CloudKit import",
-                      removedNotes, removedGroups)
+                NSLog("Perch: dedup removed %d note(s) + %d group(s) + %d image(s) after CloudKit import",
+                      removedNotes, removedGroups, removedImages)
             } catch {
                 NSLog("Perch: dedup save failed: %@", "\(error)")
             }
@@ -103,6 +104,30 @@ final class CloudKitDeduplicator {
                 continue  // 胜者
             }
             context.delete(note)
+            removed += 1
+        }
+        return removed
+    }
+
+    /// 扫 NoteImage 重复(同 id 多份):留最早创建的一份,余下删除。同 id 的图片内容
+    /// 相同(id 一次生成、之后不变),删哪份都不丢数据。
+    private func dedupImages(in context: NSManagedObjectContext) -> Int {
+        let request = NSFetchRequest<NoteImage>(entityName: "NoteImage")
+        request.sortDescriptors = [
+            NSSortDescriptor(key: "id", ascending: true),
+            NSSortDescriptor(key: "createdAt", ascending: true),
+        ]
+        guard let images = try? context.fetch(request) else { return 0 }
+
+        var removed = 0
+        var lastID: UUID? = nil
+        for image in images {
+            guard let id = image.id else { continue }
+            if id != lastID {
+                lastID = id
+                continue  // 胜者
+            }
+            context.delete(image)
             removed += 1
         }
         return removed
