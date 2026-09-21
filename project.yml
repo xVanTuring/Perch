@@ -22,15 +22,16 @@ packages:
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle.git
     from: "2.9.1"
-  # WYSIWYG Markdown 引擎(自维护 fork)—— 全 app 唯一的便签编辑器后端。
-  # 仓库无 semver tag,pin 到具体 commit。三个 product:
+  # WYSIWYG Markdown 引擎(上游 nodes-app/swift-markdown-engine)—— 全 app 唯一的
+  # 便签编辑器后端。上游有 semver tag,这里锁定确切版本:0.x 阶段小版本甚至补丁
+  # 版本都可能带破坏性变更(见其 CHANGELOG.md),升级前先读,不要放宽成 from。三个 product:
   #   - MarkdownEngine          核心 TextKit2 编辑器(零外部依赖)
   #   - MarkdownEngineCodeBlocks  HighlighterSwift 代码高亮 turnkey bridge
   #   - MarkdownEngineLatex       SwiftMath LaTeX turnkey bridge
   # 后两者把 HighlighterSwift / SwiftMath 作为传递依赖带进来。
   MarkdownEngine:
     url: https://github.com/nodes-app/swift-markdown-engine
-    branch: 0.5.0
+    exactVersion: "0.13.0"
 
 settings:
   base:

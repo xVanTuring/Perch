@@ -5,7 +5,7 @@ import MarkdownEngineLatex
 
 /// WYSIWYG Markdown 编辑器 —— 全 app 唯一的便签编辑器(浮窗 + 管理窗口详情都用它)。
 ///
-/// 用自维护的 `swift-markdown-engine`(TextKit 2 backed)做**单一可编辑面**:
+/// 用上游 `swift-markdown-engine`(TextKit 2 backed)做**单一可编辑面**:
 /// 边打字边内联渲染标题/粗斜/列表/代码块/图片/数学公式,没有「渲染态 ↔ 源码态」
 /// 的切换,也不需要双击进编辑态。早先基于 Textual 的双态编辑器(以及那个实验性
 /// 开关)已移除。
@@ -37,6 +37,9 @@ struct MarkdownEngineNoteEditor: View {
         // 列表每级缩进。engine 默认 27.5pt 是给宽编辑器调的;便签窗很窄,
         // 列表项(尤其嵌套/换行 hang)左边空白显得太大。收紧到 16pt。
         config.lists.indentPerLevel = 16
+        // 引擎 0.10.0 起 `~~删除线~~` 不再是核心语法,不注册就按普通文本显示。
+        // 注册后渲染与旧版(0.5.0 核心内置)完全一致。
+        config.extensions = [StrikethroughExtension()]
         return config
     }
 
