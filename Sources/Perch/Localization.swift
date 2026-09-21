@@ -184,6 +184,10 @@ enum LocKey: String {
     // 浮窗 ⋯ 菜单里颜色选择器的标题
     case noteColor
 
+    // 编辑器右键「格式」菜单(见 NoteFormatMenu)
+    case editorFormat, editorBold, editorItalic
+    case editorHeading, editorLists, editorBullet, editorNumbered
+
     // File menu IO(md/txt 文件 → 新便签)
     case fileImport
     case fileImportDone
@@ -456,6 +460,9 @@ enum L {
         .colorGray: "Gray",
         .colorRainbow: "Rainbow",
         .noteColor: "Color",
+        .editorFormat: "Format", .editorBold: "Bold", .editorItalic: "Italic",
+        .editorHeading: "Heading", .editorLists: "Lists",
+        .editorBullet: "Bullet", .editorNumbered: "Numbered",
         .fileImport: "Import…",
         .fileImportDone: "Imported %d note(s).",
         .managerDataMenu: "Data",
@@ -726,6 +733,9 @@ enum L {
         .colorGray: "灰色",
         .colorRainbow: "炫彩",
         .noteColor: "颜色",
+        .editorFormat: "格式", .editorBold: "加粗", .editorItalic: "斜体",
+        .editorHeading: "标题", .editorLists: "列表",
+        .editorBullet: "无序列表", .editorNumbered: "有序列表",
         .fileImport: "导入…",
         .fileImportDone: "已导入 %d 条便签。",
         .managerDataMenu: "数据",

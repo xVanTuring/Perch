@@ -28,11 +28,15 @@ struct MarkdownEngineNoteEditor: View {
     private static let sharedHighlighter = HighlighterSwiftBridge()
     private static let sharedLatex = SwiftMathBridge()
 
+    /// 右键「格式」菜单 + 它的通知名。引擎已不再自带这个菜单,见 NoteFormatMenu。
+    private var formatMenu: NoteFormatMenu { NoteFormatMenu(documentId: documentId) }
+
     private var configuration: MarkdownEditorConfiguration {
         var config = MarkdownEditorConfiguration.default
         config.services = MarkdownEditorServices(
             syntaxHighlighter: Self.sharedHighlighter,
-            latex: Self.sharedLatex
+            latex: Self.sharedLatex,
+            bus: formatMenu.bus
         )
         // 列表每级缩进。engine 默认 27.5pt 是给宽编辑器调的;便签窗很窄,
         // 列表项(尤其嵌套/换行 hang)左边空白显得太大。收紧到 16pt。
@@ -44,13 +48,15 @@ struct MarkdownEngineNoteEditor: View {
     }
 
     var body: some View {
+        let format = formatMenu
         NativeTextViewWrapper(
             text: $text,
             configuration: configuration,
             fontName: "SF Pro",
             fontSize: CGFloat(noteFontSize),
             documentId: documentId,
-            isEditable: true
+            isEditable: true,
+            onBuildContextMenu: { menu, _ in format.decorate(menu) }
         )
     }
 }
