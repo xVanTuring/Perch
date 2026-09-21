@@ -196,12 +196,13 @@ extension Note {
         s = s.replacingOccurrences(of: "!\\[([^\\]]*)\\]\\([^\\)]*\\)", with: "$1", options: .regularExpression)
         s = s.replacingOccurrences(of: "\\[([^\\]]*)\\]\\([^\\)]*\\)", with: "$1", options: .regularExpression)
         // 行内强调/代码:`**bold**`、`*italic*`、`__bold__`、`_italic_`、
-        // `~~strike~~`、`` `code` ``。粗体先于斜体,免得 `**` 被吃成两次 `*`。
+        // `~~strike~~`、`==highlight==`、`` `code` ``。粗体先于斜体,免得 `**` 被吃成两次 `*`。
         s = s.replacingOccurrences(of: "\\*\\*([^\\*]+)\\*\\*", with: "$1", options: .regularExpression)
         s = s.replacingOccurrences(of: "__([^_]+)__",           with: "$1", options: .regularExpression)
         s = s.replacingOccurrences(of: "\\*([^\\*]+)\\*",       with: "$1", options: .regularExpression)
         s = s.replacingOccurrences(of: "_([^_]+)_",             with: "$1", options: .regularExpression)
         s = s.replacingOccurrences(of: "~~([^~]+)~~",           with: "$1", options: .regularExpression)
+        s = s.replacingOccurrences(of: "==([^=]+)==",           with: "$1", options: .regularExpression)
         s = s.replacingOccurrences(of: "`([^`]+)`",             with: "$1", options: .regularExpression)
         return s
     }
