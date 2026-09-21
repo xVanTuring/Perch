@@ -191,6 +191,8 @@ extension Note {
         s = s.replacingOccurrences(of: "^[-*+]\\s+",   with: "", options: .regularExpression)
         s = s.replacingOccurrences(of: "^\\d+\\.\\s+", with: "", options: .regularExpression)
         s = s.replacingOccurrences(of: "^\\[[ xX]\\]\\s*", with: "", options: .regularExpression)
+        // 图片嵌入 `![[名称|UUID|宽度]]` 只留名称(UUID 和宽度是内部信息)。
+        s = s.replacingOccurrences(of: "!\\[\\[([^\\]|]*)[^\\]]*\\]\\]", with: "$1", options: .regularExpression)
         // 图片 / 链接:`![alt](url)` 和 `[text](url)` 各保留括号里的可见文本。
         // 图片必须先于链接,因为 `![...](...)` 也匹配链接 pattern。
         s = s.replacingOccurrences(of: "!\\[([^\\]]*)\\]\\([^\\)]*\\)", with: "$1", options: .regularExpression)

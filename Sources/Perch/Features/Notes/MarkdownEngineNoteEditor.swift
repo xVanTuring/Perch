@@ -23,6 +23,10 @@ struct MarkdownEngineNoteEditor: View {
     /// 跟 Settings → Notes 字号同步;改设置时 engine 通过 updateNSView 自动对齐。
     @AppStorage(SettingsKey.noteFontSize) private var noteFontSize: Int = 14
 
+    /// 图片来源(本地存储 + 网络图片)。网络图片下载完成时它的 revision 会变,
+    /// 订阅它是为了让编辑器重新渲染、引擎重新取图。见 NoteImageProvider。
+    @ObservedObject private var images = NoteImageProvider.shared
+
     /// engine 服务的全局单例。HighlighterSwift 走 JavaScriptCore、SwiftMath 有
     /// 渲染缓存,建一次全 app 复用最划算;两者都自带 light/dark 自动跟随。
     private static let sharedHighlighter = HighlighterSwiftBridge()
@@ -34,6 +38,7 @@ struct MarkdownEngineNoteEditor: View {
     private var configuration: MarkdownEditorConfiguration {
         var config = MarkdownEditorConfiguration.default
         config.services = MarkdownEditorServices(
+            images: images,
             syntaxHighlighter: Self.sharedHighlighter,
             latex: Self.sharedLatex,
             bus: formatMenu.bus
@@ -57,6 +62,9 @@ struct MarkdownEngineNoteEditor: View {
             fontSize: CGFloat(noteFontSize),
             documentId: documentId,
             isEditable: true,
+            // 粘贴板里有图片就复制进内部存储并插入 `![[名称|UUID]]`;否则返回 nil,
+            // 引擎照常按文本粘贴。见 NoteImagePaste。
+            onPasteImage: { NoteImagePaste.embed(from: $0) },
             onBuildContextMenu: { menu, _ in format.decorate(menu) }
         )
     }
