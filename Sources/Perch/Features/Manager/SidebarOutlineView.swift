@@ -859,9 +859,27 @@ final class NoteRowCellView: NSTableCellView {
             card.unlockFocus()
         }
 
+        #if DEBUG
+        // #temp-debug(拖拽预览还是黑的,两轮猜色都没解决):直接把生成的两张图
+        // 存盘,自己读文件看像素,别再猜颜色解析时机了。
+        NSLog("Perch Sidebar: draggingImageComponents bounds=%@ backgroundStyle=%ld",
+              NSStringFromRect(bounds), backgroundStyle.rawValue)
+        Self.debugSavePNG(rowImage, to: "/tmp/perch-drag-row.png")
+        Self.debugSavePNG(card, to: "/tmp/perch-drag-card.png")
+        #endif
+
         let component = NSDraggingImageComponent(key: .icon)
         component.contents = card
         component.frame = bounds
         return [component]
     }
+
+    #if DEBUG
+    private static func debugSavePNG(_ image: NSImage, to path: String) {
+        guard let tiff = image.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: tiff),
+              let png = rep.representation(using: .png, properties: [:]) else { return }
+        try? png.write(to: URL(fileURLWithPath: path))
+    }
+    #endif
 }
