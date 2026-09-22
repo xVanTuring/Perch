@@ -198,11 +198,15 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
     /// to the binding and we'd loop.
     private var suppressSelectionWriteback = false
 
-    /// 排查侧栏选中闪烁用(#temp-debug,问题定位后可删)。只留结构快照给
-    /// applySnapshot 判断这次 reload 是不是"纯选中回环"(内容没变、只是
-    /// selection 走了一圈绑定又发下来),日志据此区分"真的有数据变化"
-    /// 还是"选中触发的多余 reloadData"。
-    private var lastAppliedSnapshot: SidebarSnapshot?
+    /// #5(侧栏选中闪烁):合并同一次用户操作触发的连续 `applySnapshot` 调用。
+    /// 实测点一下笔记,SwiftUI 会在 ~20ms 内把 `updateNSViewController` 连
+    /// 发两次(同一个、没有任何数据变化的 selection),每次都各自跑一遍
+    /// `reloadData()` + 重新选中 —— 这一整表拆了建、建了拆两遍就是闪烁的
+    /// 根因。这里不去猜"这次调用要不要 reload"(试过按 ID 集合猜,会漏掉
+    /// 正文编辑不刷新标题的情况,见下面 performReload 的注释),而是把连续
+    /// 到达的调用去抖合并成一次,用最新的数据跑——正确性不变,只是把
+    /// "同一拍里来两次"合并成一次真正的重建。
+    private var pendingReload: DispatchWorkItem?
 
     init(_ parent: SidebarOutlineView) {
         self.parent = parent
@@ -211,14 +215,9 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
     // MARK: - Snapshot application
 
     func applySnapshot(_ s: SidebarSnapshot, expandAll: Bool) {
-        // **Always reloadData**. Earlier we tried skipping when the snapshot
-        // was structurally identical (same NSManagedObjectIDs in same order),
-        // but that misses edits to a note's *content* — typing into a note
-        // doesn't change the ID set, so the row's title would stay stuck on
-        // "Empty note" until something else forced a reload. NSOutlineView
-        // reuses cell views, so reloadData for ~30 visible rows is cheap.
-
-        // Rebuild lookup tables.
+        // Rebuild lookup tables synchronously — cheap, and menus/drag/count
+        // badges need up-to-date Note/NoteGroup references immediately even
+        // while the visual reload below is debounced.
         groupByID.removeAll(keepingCapacity: true)
         noteByID.removeAll(keepingCapacity: true)
         parentItemForNote.removeAll(keepingCapacity: true)
@@ -259,14 +258,48 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
             topLevel = top
         }
 
+        guard controller?.outlineView != nil else { return }
+
+        if expandAll {
+            // Initial setup (makeNSViewController) — must run synchronously:
+            // the caller reads outlineView.selectedRowIndexes right after
+            // this returns to scroll the restored selection into view.
+            pendingReload?.cancel()
+            performReload(expandAll: true)
+            return
+        }
+
+        // Debounce: cancel whatever the previous call scheduled and schedule
+        // fresh — if another applySnapshot lands within the window (the
+        // observed same-click double-fire), only the latest one actually
+        // reloads.
+        #if DEBUG
+        if let pendingReload, !pendingReload.isCancelled {
+            NSLog("Perch Sidebar: applySnapshot coalesced a still-pending reload")
+        }
+        #endif
+        pendingReload?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.performReload(expandAll: false) }
+        pendingReload = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: work)
+    }
+
+    /// **Always reloadData** (once the debounce above has settled). Earlier
+    /// we tried skipping this when the snapshot was structurally identical
+    /// (same NSManagedObjectIDs in the same order), but that misses edits to
+    /// a note's *content* — typing into a note doesn't change the ID set, so
+    /// the row's title would stay stuck until something else forced a
+    /// reload. NSOutlineView reuses cell views, so reloadData for ~30
+    /// visible rows is cheap; the debounce above is what keeps it from
+    /// running twice for one click.
+    private func performReload(expandAll: Bool) {
         guard let outlineView = controller?.outlineView else { return }
         // Save current selection to re-apply after reload (selectRowIndexes uses
         // row indices which are invalidated by reload).
         let preselected = parent.selection
         #if DEBUG
-        let structurallySame = lastAppliedSnapshot == s
-        NSLog("Perch Sidebar: applySnapshot expandAll=%@ structurallySame=%@ selection=%@",
-              String(expandAll), String(structurallySame), preselected.map(\.uuidString).joined(separator: ","))
+        NSLog("Perch Sidebar: performReload expandAll=%@ selection=%@",
+              String(expandAll), preselected.map(\.uuidString).joined(separator: ","))
         #endif
         suppressSelectionWriteback = true
         outlineView.reloadData()
@@ -276,7 +309,6 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
         // Re-apply previous selection by item identity, not row index.
         applySelection(preselected, on: outlineView)
         suppressSelectionWriteback = false
-        lastAppliedSnapshot = s
     }
 
     // MARK: - Selection bridging
