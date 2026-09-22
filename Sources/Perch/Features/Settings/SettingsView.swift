@@ -239,7 +239,7 @@ enum MenuGroupingMode: String, CaseIterable, Identifiable {
 struct MenuBarTab: View {
     @AppStorage(SettingsKey.menuBarCount) private var menuBarCountRaw: String = MenuBarCountMode.none.rawValue
     @AppStorage(SettingsKey.menuGrouping) private var menuGroupingRaw: String = MenuGroupingMode.none.rawValue
-    @AppStorage(SettingsKey.newGroupsShowInMenu) private var newGroupsShowInMenu: Bool = true
+    @AppStorage(SettingsKey.newGroupsShowInMenu) private var newGroupsShowInMenu: Bool = false
     @AppStorage(SettingsKey.statusItemLeftClick) private var leftClickRaw: String = StatusItemClickAction.menu.rawValue
     @AppStorage(SettingsKey.statusItemRightClick) private var rightClickRaw: String = StatusItemClickAction.menu.rawValue
     @AppStorage(SettingsKey.managerShowsDockIcon) private var managerShowsDockIcon: Bool = false

@@ -17,10 +17,10 @@ enum MenuHiddenGroups {
 
     static func isHidden(_ id: UUID) -> Bool { ids().contains(id) }
 
-    /// Settings → General:在 Manager 新建的分组默认是否出现在托盘菜单(默认 true)。
-    /// 只作用于新建那一刻,不回溯已有分组。
+    /// Settings → General:在 Manager 新建的分组默认是否出现在托盘菜单(默认 false ——
+    /// #3,新分组默认不进菜单栏,未分组不受影响)。只作用于新建那一刻,不回溯已有分组。
     static var newGroupsShownByDefault: Bool {
-        UserDefaults.standard.object(forKey: SettingsKey.newGroupsShowInMenu) as? Bool ?? true
+        UserDefaults.standard.object(forKey: SettingsKey.newGroupsShowInMenu) as? Bool ?? false
     }
 
     static func setHidden(_ id: UUID, _ hidden: Bool) {
