@@ -364,6 +364,7 @@ struct ManagerView: View {
 
     private func createNote() {
         let note = Note.create(in: context)
+        note.group = selectedNote?.group
         try? context.save()
         selection = [note.id]
     }
