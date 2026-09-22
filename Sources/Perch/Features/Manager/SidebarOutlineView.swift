@@ -186,9 +186,6 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
     private var topLevel: [SidebarItem] = []
     /// note objectID → Note. Used to hydrate the lightweight SidebarItem cases.
     private var noteByID: [NSManagedObjectID: Note] = [:]
-    /// note.id (UUID, what the drag pasteboard carries) → Note. Lets drag
-    /// image generation resolve a note without an objectID in hand.
-    private var noteByUUID: [UUID: Note] = [:]
     private var groupByID: [NSManagedObjectID: NoteGroup] = [:]
     /// note objectID → its parent SidebarItem (group | ungrouped header).
     /// Outline view passes Any? for items; we need parent lookup for drop coercion.
@@ -223,17 +220,16 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
         // while the visual reload below is debounced.
         groupByID.removeAll(keepingCapacity: true)
         noteByID.removeAll(keepingCapacity: true)
-        noteByUUID.removeAll(keepingCapacity: true)
         parentItemForNote.removeAll(keepingCapacity: true)
         childrenForParent.removeAll(keepingCapacity: true)
 
         for g in s.groups { groupByID[g.objectID] = g }
         for (_, list) in s.notesByGroup {
-            for n in list { noteByID[n.objectID] = n; noteByUUID[n.id] = n }
+            for n in list { noteByID[n.objectID] = n }
         }
-        for n in s.ungroupedNotes { noteByID[n.objectID] = n; noteByUUID[n.id] = n }
+        for n in s.ungroupedNotes { noteByID[n.objectID] = n }
         if let flat = s.flatNotes {
-            for n in flat { noteByID[n.objectID] = n; noteByUUID[n.id] = n }
+            for n in flat { noteByID[n.objectID] = n }
         }
 
         // Build top-level + parent/child maps.
@@ -503,48 +499,6 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
         // build the multi-row drag.
         pb.setString(note.id.uuidString, forType: kNotePasteboardType)
         return pb
-    }
-
-    /// 不自定义的话,AppKit 给字符串 pasteboard item 的默认拖拽预览就是一
-    /// 块裸文字(看不出在拖哪条笔记、什么分组的颜色)。这里把每个被拖起来的
-    /// item 换成实际 NoteRowCellView 的截图 —— 跟侧栏里那一行长得一样(色条 +
-    /// 标题),多选同拖时每条各自换好,AppKit 自己处理层叠 + 数量角标。
-    func outlineView(_ outlineView: NSOutlineView, updateDraggingItemsForDrag draggingInfo: NSDraggingInfo) {
-        let width = max(outlineView.bounds.width, 160)
-        let height = outlineView.rowHeight
-        draggingInfo.enumerateDraggingItems(
-            options: [], for: outlineView, classes: [NSPasteboardItem.self], searchOptions: [:]
-        ) { [weak self] dragItem, _, _ in
-            guard let self,
-                  let pbItem = dragItem.item as? NSPasteboardItem,
-                  let idString = pbItem.string(forType: kNotePasteboardType),
-                  let uuid = UUID(uuidString: idString),
-                  let note = self.noteByUUID[uuid],
-                  let image = Self.dragPreviewImage(for: note, width: width, height: height)
-            else { return }
-            let size = NSSize(width: width, height: height)
-            dragItem.draggingFrame = NSRect(origin: dragItem.draggingFrame.origin, size: size)
-            dragItem.imageComponentsProvider = {
-                let component = NSDraggingImageComponent(key: .icon)
-                component.contents = image
-                component.frame = NSRect(origin: .zero, size: size)
-                return [component]
-            }
-        }
-    }
-
-    /// Rasterizes a detached NoteRowCellView — reuses the real row styling
-    /// (color bar, title, task pie) instead of hand-rolling a second look
-    /// for the drag preview that could drift from the sidebar's own.
-    private static func dragPreviewImage(for note: Note, width: CGFloat, height: CGFloat) -> NSImage? {
-        let cell = NoteRowCellView(frame: NSRect(x: 0, y: 0, width: width, height: height))
-        cell.configure(with: note)
-        cell.layoutSubtreeIfNeeded()
-        guard let rep = cell.bitmapImageRepForCachingDisplay(in: cell.bounds) else { return nil }
-        cell.cacheDisplay(in: cell.bounds, to: rep)
-        let image = NSImage(size: cell.bounds.size)
-        image.addRepresentation(rep)
-        return image
     }
 
     func outlineView(_ outlineView: NSOutlineView, validateDrop info: NSDraggingInfo, proposedItem item: Any?, proposedChildIndex index: Int) -> NSDragOperation {
@@ -860,5 +814,23 @@ final class NoteRowCellView: NSTableCellView {
         super.viewDidMoveToWindow()
         keyState.observe(window)
         updateColors()
+    }
+
+    /// NSTableCellView 的默认实现只从 `imageView` + `textField` 拼拖拽预览 ——
+    /// colorBar 只是个普通 NSView(不是 imageView),默认实现根本看不到它,
+    /// 拖起来就只剩裸标题文字。整行截图当成唯一的拖拽预览内容,颜色条跟着
+    /// 一起带上,还顺带省了自己拼 NSDraggingImageComponent 数组、维护 frame
+    /// 对齐的活。
+    override var draggingImageComponents: [NSDraggingImageComponent] {
+        guard let rep = bitmapImageRepForCachingDisplay(in: bounds) else {
+            return super.draggingImageComponents
+        }
+        cacheDisplay(in: bounds, to: rep)
+        let image = NSImage(size: bounds.size)
+        image.addRepresentation(rep)
+        let component = NSDraggingImageComponent(key: .icon)
+        component.contents = image
+        component.frame = bounds
+        return [component]
     }
 }
