@@ -345,6 +345,21 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
         }
     }
 
+    /// 折叠/展开只改变子行是否显示,分组头行本身是同一个 cell 实例不会被
+    /// 重新 vend —— 手动 reloadItem 让它的 count 徽标跟着切换可见性。
+    func outlineViewItemDidExpand(_ notification: Notification) {
+        reloadHeaderRow(from: notification)
+    }
+
+    func outlineViewItemDidCollapse(_ notification: Notification) {
+        reloadHeaderRow(from: notification)
+    }
+
+    private func reloadHeaderRow(from notification: Notification) {
+        guard let item = notification.userInfo?["NSObject"] else { return }
+        controller?.outlineView.reloadItem(item)
+    }
+
     func outlineView(_ outlineView: NSOutlineView, shouldSelectItem item: Any) -> Bool {
         guard let item = item as? SidebarItem else { return false }
         // Group/header rows aren't selectable as notes — only note rows feed
@@ -362,10 +377,10 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
             let name = groupByID[oid]?.name ?? ""
             let hiddenFromMenu = groupByID[oid].map { MenuHiddenGroups.isHidden($0.id) } ?? false
             return makeGroupHeaderView(text: name.isEmpty ? L.t(.untitled) : name,
-                                       hiddenFromMenu: hiddenFromMenu, outlineView: outlineView)
+                                       hiddenFromMenu: hiddenFromMenu, item: item, outlineView: outlineView)
         case .ungroupedHeader:
             return makeGroupHeaderView(text: L.t(.managerUngrouped),
-                                       hiddenFromMenu: false, outlineView: outlineView)
+                                       hiddenFromMenu: false, item: item, outlineView: outlineView)
         case .note(let oid):
             guard let note = noteByID[oid] else { return nil }
             return makeNoteRowView(note: note, outlineView: outlineView)
@@ -375,7 +390,7 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
     private static let groupHeaderID = NSUserInterfaceItemIdentifier("Perch.SidebarGroupHeader")
     private static let noteRowID = NSUserInterfaceItemIdentifier("Perch.SidebarNoteRow")
 
-    private func makeGroupHeaderView(text: String, hiddenFromMenu: Bool, outlineView: NSOutlineView) -> NSView {
+    private func makeGroupHeaderView(text: String, hiddenFromMenu: Bool, item: SidebarItem, outlineView: NSOutlineView) -> NSView {
         let view: GroupHeaderCellView
         if let recycled = outlineView.makeView(withIdentifier: Self.groupHeaderID, owner: nil) as? GroupHeaderCellView {
             view = recycled
@@ -383,7 +398,8 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
             view = GroupHeaderCellView()
             view.identifier = Self.groupHeaderID
         }
-        view.configure(text: text, hiddenFromMenu: hiddenFromMenu)
+        let count = childrenForParent[item]?.count ?? 0
+        view.configure(text: text, hiddenFromMenu: hiddenFromMenu, count: count, isExpanded: outlineView.isItemExpanded(item))
         return view
     }
 
@@ -508,11 +524,21 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
 final class GroupHeaderCellView: NSTableCellView {
     private let label = NSTextField(labelWithString: "")
     private let hiddenIcon = NSImageView()
+    /// 折叠时显示分组下笔记数,展开时隐藏。跟 hiddenIcon 一起塞进尾部 stack,
+    /// 靠 NSStackView 对隐藏 arranged subview 自动收缩宽度,不用再手写第三套
+    /// 两态尾部约束。
+    private let countLabel = NSTextField(labelWithString: "")
+    private lazy var trailingStack: NSStackView = {
+        let stack = NSStackView(views: [countLabel, hiddenIcon])
+        stack.orientation = .horizontal
+        stack.spacing = 4
+        stack.alignment = .centerY
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        return stack
+    }()
 
-    private lazy var labelTrailingToIcon =
-        label.trailingAnchor.constraint(lessThanOrEqualTo: hiddenIcon.leadingAnchor, constant: -4)
-    private lazy var labelTrailingToEdge =
-        label.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -8)
+    private lazy var labelTrailingToStack =
+        label.trailingAnchor.constraint(lessThanOrEqualTo: trailingStack.leadingAnchor, constant: -4)
 
     override init(frame frameRect: NSRect) { super.init(frame: frameRect); setup() }
     required init?(coder: NSCoder) { super.init(coder: coder); setup() }
@@ -525,36 +551,45 @@ final class GroupHeaderCellView: NSTableCellView {
         label.lineBreakMode = .byTruncatingTail
         // 不挂到 `textField`:source list 的 group row 会接管 textField 的字体和颜色,
         // 窗口失去焦点时再把它淡化到几乎看不见。自己定字体 + 颜色,激活与否一致。
-        label.font = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize, weight: .semibold)
+        label.font = NSFont.systemFont(ofSize: NSFont.systemFontSize, weight: .semibold)
         addSubview(label)
 
-        hiddenIcon.translatesAutoresizingMaskIntoConstraints = false
+        countLabel.translatesAutoresizingMaskIntoConstraints = false
+        countLabel.isEditable = false
+        countLabel.isBordered = false
+        countLabel.drawsBackground = false
+        countLabel.font = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)
+        countLabel.textColor = .secondaryLabelColor
+        countLabel.isHidden = true
+
         hiddenIcon.image = NSImage(systemSymbolName: "eye.slash", accessibilityDescription: nil)
         // tertiaryLabelColor + 10pt 在深色侧栏上几乎看不见,提到 secondary + 12pt medium。
         hiddenIcon.contentTintColor = .secondaryLabelColor
         hiddenIcon.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 12, weight: .medium)
         hiddenIcon.toolTip = L.t(.managerHideGroupFromMenu)
-        addSubview(hiddenIcon)
+        hiddenIcon.isHidden = true
+
+        addSubview(trailingStack)
 
         NSLayoutConstraint.activate([
             label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 0),
             label.centerYAnchor.constraint(equalTo: centerYAnchor),
-            hiddenIcon.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
-            hiddenIcon.centerYAnchor.constraint(equalTo: centerYAnchor),
+            trailingStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
+            trailingStack.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
-        labelTrailingToEdge.isActive = true
+        labelTrailingToStack.isActive = true
     }
 
     private var hiddenFromMenu = false
     private lazy var keyState = WindowKeyStateObserver { [weak self] in self?.updateColors() }
 
-    func configure(text: String, hiddenFromMenu: Bool) {
+    func configure(text: String, hiddenFromMenu: Bool, count: Int, isExpanded: Bool) {
         label.stringValue = text
         self.hiddenFromMenu = hiddenFromMenu
         updateColors()
         hiddenIcon.isHidden = !hiddenFromMenu
-        labelTrailingToEdge.isActive = !hiddenFromMenu
-        labelTrailingToIcon.isActive = hiddenFromMenu
+        countLabel.stringValue = "\(count)"
+        countLabel.isHidden = isExpanded || count == 0
     }
 
     /// 窗口失焦时适度变灰(macOS 惯例),但不像系统 group row 那样淡到看不清:
