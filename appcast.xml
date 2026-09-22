@@ -9,6 +9,40 @@
     <language>en</language>
     <!-- BEGIN-ITEMS (release.sh inserts new entries here, newest first) -->
     <item>
+      <title>v2.6.0</title>
+      <pubDate>Tue, 22 Sep 2026 07:28:29 +0000</pubDate>
+      <sparkle:version>19</sparkle:version>
+      <sparkle:shortVersionString>2.6.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <description xml:lang="en"><![CDATA[
+<h4>Improved</h4>
+<ul>
+<li><strong>New notes inherit the current group</strong> — creating a note in the manager window while another note is selected now places the new note in that note's group, instead of leaving it ungrouped.</li>
+<li><strong>Group headers</strong> are a touch larger and bolder; a collapsed group now shows how many notes it holds.</li>
+<li><strong>New groups stay out of the menu bar by default</strong> — a freshly created group no longer appears in the menu bar's note list until you opt it in (Manager → right-click the group). Ungrouped notes are unaffected.</li>
+</ul>
+<h4>Fixed</h4>
+<ul>
+<li>A visible flicker when clicking between notes in the manager sidebar — selecting a note could trigger the sidebar to rebuild itself twice in a row for no reason; now coalesced into one.</li>
+</ul>
+<p><a href="https://github.com/xVanTuring/Perch/releases/tag/v2.6.0">View full release on GitHub →</a></p>
+      ]]></description>
+      <description xml:lang="zh"><![CDATA[
+<h4>改进</h4>
+<ul>
+<li><strong>新建笔记跟随当前分组</strong> —— 在管理窗口里选中某条笔记时新建笔记，新笔记会自动归到这条笔记所在的分组，不再默认未分组。</li>
+<li><strong>分组头</strong> 字体调大了一点，折叠后会显示这个分组下有多少条笔记。</li>
+<li><strong>新分组默认不出现在菜单栏</strong> —— 新建的分组不再自动进菜单栏的笔记列表，需要的话在管理窗口右键该分组手动打开。未分组的笔记不受影响。</li>
+</ul>
+<h4>修复</h4>
+<ul>
+<li>修复管理窗口侧栏点选笔记时偶尔出现的闪烁 —— 点选会触发侧栏被连续重建两次，现在合并成一次。</li>
+</ul>
+<p><a href="https://github.com/xVanTuring/Perch/releases/tag/v2.6.0">在 GitHub 查看完整更新 →</a></p>
+      ]]></description>
+      <enclosure url="https://github.com/xVanTuring/Perch/releases/download/v2.6.0/Perch-2.6.0.zip" length="9223969" type="application/octet-stream" sparkle:edSignature="LOeqY86GI0kyjUjj9v7xGWdPQNW7mUYOby38StxzvKEbOpT4Z34BJZpSvcrxAWXmcuavhEMfj6ywoydOCK4PDg==" />
+    </item>
+    <item>
       <title>v2.5.0</title>
       <pubDate>Tue, 22 Sep 2026 06:16:43 +0000</pubDate>
       <sparkle:version>18</sparkle:version>
