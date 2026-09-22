@@ -834,19 +834,29 @@ final class NoteRowCellView: NSTableCellView {
         let rowImage = NSImage(size: bounds.size)
         rowImage.addRepresentation(rowRep)
 
+        // `NSImage(size:flipped:drawingHandler:)`'s handler runs lazily —
+        // whenever AppKit actually composites the drag image, which is well
+        // outside this call — so a plain `performAsCurrentDrawingAppearance`
+        // wrapped around *creating* the image doesn't reliably cover the
+        // handler; the dynamic NSColors were resolving against whatever
+        // fallback appearance was active at that later point, turning
+        // windowBackgroundColor solid black in dark mode instead of the
+        // expected card-gray. `lockFocus`/`unlockFocus` draws synchronously,
+        // right here, inside the appearance scope — same fix already used
+        // for colorBar's CGColor above.
         let size = bounds.size
-        var card = NSImage(size: size)
+        let card = NSImage(size: size)
         effectiveAppearance.performAsCurrentDrawingAppearance {
-            card = NSImage(size: size, flipped: false) { rect in
-                let path = NSBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), xRadius: 6, yRadius: 6)
-                NSColor.windowBackgroundColor.setFill()
-                path.fill()
-                NSColor.separatorColor.setStroke()
-                path.lineWidth = 1
-                path.stroke()
-                rowImage.draw(in: rect)
-                return true
-            }
+            card.lockFocus()
+            let rect = NSRect(origin: .zero, size: size)
+            let path = NSBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), xRadius: 6, yRadius: 6)
+            NSColor.windowBackgroundColor.setFill()
+            path.fill()
+            NSColor.separatorColor.setStroke()
+            path.lineWidth = 1
+            path.stroke()
+            rowImage.draw(in: rect)
+            card.unlockFocus()
         }
 
         let component = NSDraggingImageComponent(key: .icon)
