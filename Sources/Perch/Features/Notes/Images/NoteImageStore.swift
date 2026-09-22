@@ -16,6 +16,18 @@ final class NoteImageStore: @unchecked Sendable {
         let displayName: String
     }
 
+    /// 一条便签「关联」到的一张图片,给图片面板列表用(见 NoteImagesPopover)。
+    /// 名称不落库,所以这里只有客观信息;显示名由 `defaultName(for:fileExtension:)`
+    /// 按导入时间还原。
+    struct LinkedImage: Identifiable {
+        let id: UUID
+        let createdAt: Date
+        let fileExtension: String
+        /// 正文里还有 `![[…|这个 id]]` 引用。false = 引用被删了,图片还在,
+        /// 可以从面板放回去 —— 这正是这个面板存在的理由。
+        let isReferenced: Bool
+    }
+
     enum ImportError: Error {
         case notAnImage
         case tooLarge
@@ -48,6 +60,47 @@ final class NoteImageStore: @unchecked Sendable {
         guard let data, let image = NSImage(data: data) else { return nil }
         decoded.setObject(image, forKey: key)
         return image
+    }
+
+    /// 一条便签关联到的所有图片,按导入时间排序。两个来源取并集:
+    /// - `ownerNoteID` 记在这条便签名下的(粘贴 / 拖入时登记的),**包括正文里
+    ///   已经没有引用的** —— 面板要能把它们放回去;
+    /// - 正文里引用到的(可能是从别的便签复制过来的引用,owner 不是这条)。
+    ///
+    /// 只读元信息,不碰 `data` —— 图片本体按需走 `image(for:)`(它自带解码缓存),
+    /// 否则开一次面板就把这条便签的所有图片全解出来。
+    func linkedImages(for note: Note) -> [LinkedImage] {
+        let referenced = Self.referencedImageIDs(in: note.content)
+        let noteID = note.id
+        var result: [LinkedImage] = []
+        context.performAndWait {
+            let request = NSFetchRequest<NoteImage>(entityName: "NoteImage")
+            request.predicate = NSPredicate(
+                format: "ownerNoteID == %@ OR id IN %@", noteID as CVarArg, Array(referenced)
+            )
+            // 同 id 可能有多份(CloudKit 没有唯一约束),按 id 去重。
+            var seen = Set<UUID>()
+            for image in (try? context.fetch(request)) ?? [] {
+                guard let id = image.id, seen.insert(id).inserted else { continue }
+                result.append(LinkedImage(
+                    id: id,
+                    createdAt: image.createdAt ?? .distantPast,
+                    fileExtension: image.fileExtension ?? "png",
+                    isReferenced: referenced.contains(id)
+                ))
+            }
+        }
+        return result.sorted { $0.createdAt < $1.createdAt }
+    }
+
+    /// 图片的默认显示名。名称没有落库,粘贴时用的就是这个格式,所以对截图来说
+    /// 从面板放回去的名字和当初粘进来的完全一致;拖入的文件会丢掉原文件名。
+    static func defaultName(for date: Date, fileExtension: String) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMddHHmmss"
+        let ext = fileExtension.isEmpty ? "png" : fileExtension
+        return "Pasted image \(formatter.string(from: date)).\(ext)"
     }
 
     // MARK: 导入

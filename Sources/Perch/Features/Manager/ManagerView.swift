@@ -55,7 +55,17 @@ struct ManagerView: View {
     /// 的 updateNSViewController 跑一次 reloadData,让分组行的 eye.slash 标记即时刷新。
     /// (MenuHiddenGroups 存在 UserDefaults,不是 @Published,不会自己触发重绘。)
     @State private var menuVisibilityToken = 0
+    /// 图片面板 popover 的开关(toolbar 上的相机按钮)。
+    @State private var showNoteImages = false
     @ObservedObject private var loc = LocalizationManager.shared
+
+    /// 当前单选中的笔记。多选 / 无选 / 在回收站等视图里都是 nil ——
+    /// toolbar 上那些「针对一条笔记」的入口据此决定要不要出现。
+    private var selectedNote: Note? {
+        guard !viewingTasks, !viewingTrash, !viewingArchive,
+              selection.count == 1, let id = selection.first else { return nil }
+        return allNotes.first { $0.id == id && !$0.isDeleted }
+    }
 
     var body: some View {
         NavigationSplitView {
@@ -111,6 +121,23 @@ struct ManagerView: View {
                     Label(L.t(.managerNewGroup), systemImage: "folder.badge.plus")
                 }
                 .help(L.t(.managerNewGroup))
+            }
+            // 选中笔记的图片面板。图片和正文里的引用是两回事 —— 引用删掉、
+            // 改坏、被 undo 吃掉,图片本身都还在库里(清理只发生在便签被永久
+            // 删除时)。这个 popover 是把它放回去的唯一入口,见 NoteImagesPopover。
+            // 只在单选一条笔记、且这条笔记确实关联了图片时出现。
+            if let note = selectedNote, NoteImagesPopover.hasImages(note) {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        showNoteImages.toggle()
+                    } label: {
+                        Label(L.t(.noteImagesButton), systemImage: "photo.on.rectangle.angled")
+                    }
+                    .help(L.t(.noteImagesButton))
+                    .popover(isPresented: $showNoteImages, arrowEdge: .bottom) {
+                        NoteImagesPopover(note: note)
+                    }
+                }
             }
             ToolbarItem(placement: .primaryAction) {
                 Button(action: createNote) {

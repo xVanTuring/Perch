@@ -215,6 +215,10 @@ enum LocKey: String {
 
     // All Tasks(跨笔记的未完成任务聚合)
     case tasksTitle, tasksEmpty, tasksEmptyDesc
+
+    // 便签的图片面板
+    case noteImagesButton, noteImagesTitle, noteImagesEmpty
+    case noteImagesInNote, noteImagesInsert, noteImagesInsertHelp
 }
 
 /// 字符串查找器。`L.t(.foo)` 取无参数版本;`L.t(.foo, args)` 取 `String(format:)` 版本。
@@ -505,7 +509,14 @@ enum L {
 
         .tasksTitle: "All Tasks",
         .tasksEmpty: "No open tasks",
-        .tasksEmptyDesc: "Unchecked tasks from all your notes show up here. Add a checklist (- [ ] …) to any note and it appears."
+        .tasksEmptyDesc: "Unchecked tasks from all your notes show up here. Add a checklist (- [ ] …) to any note and it appears.",
+
+        .noteImagesButton: "Images in this note",
+        .noteImagesTitle: "Images",
+        .noteImagesEmpty: "No images in this note yet.",
+        .noteImagesInNote: "Already in the note",
+        .noteImagesInsert: "Insert",
+        .noteImagesInsertHelp: "Add a reference to this image at the end of the note"
     ]
 
     private static let zh: [LocKey: String] = [
@@ -779,6 +790,13 @@ enum L {
 
         .tasksTitle: "全部任务",
         .tasksEmpty: "没有未完成的任务",
-        .tasksEmptyDesc: "所有笔记里未勾选的任务都会汇总到这里。在任意笔记里写个清单(- [ ] …)就会出现。"
+        .tasksEmptyDesc: "所有笔记里未勾选的任务都会汇总到这里。在任意笔记里写个清单(- [ ] …)就会出现。",
+
+        .noteImagesButton: "本便签的图片",
+        .noteImagesTitle: "图片",
+        .noteImagesEmpty: "这条便签还没有图片。",
+        .noteImagesInNote: "已在正文中",
+        .noteImagesInsert: "插入",
+        .noteImagesInsertHelp: "在笔记末尾插入这张图片的引用"
     ]
 }

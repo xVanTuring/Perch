@@ -39,7 +39,9 @@ enum NoteImagePaste {
         guard let png = PasteboardImageReader.imageData(from: pasteboard) else { return nil }
         do {
             let stored = try store.importImageData(
-                png, fileExtension: "png", name: pastedName(), ownerNoteID: ownerNoteID
+                png, fileExtension: "png",
+                name: NoteImageStore.defaultName(for: Date(), fileExtension: "png"),
+                ownerNoteID: ownerNoteID
             )
             return markdown(for: stored)
         } catch {
@@ -72,14 +74,13 @@ enum NoteImagePaste {
     }
 
     private static func markdown(for stored: NoteImageStore.StoredImage) -> String {
-        ImageEmbedReference(name: stored.displayName, nodeID: stored.id).markdown
+        markdown(name: stored.displayName, id: stored.id)
     }
 
-    private static func pastedName() -> String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.dateFormat = "yyyyMMddHHmmss"
-        return "Pasted image \(formatter.string(from: Date())).png"
+    /// 正文里那一行图片引用 `![[名称|UUID]]`。图片面板放回引用时也走这里,
+    /// 免得两处各拼各的。
+    static func markdown(name: String, id: UUID) -> String {
+        ImageEmbedReference(name: name, nodeID: id).markdown
     }
 
     private static func isSingleWebURL(_ text: String) -> Bool {

@@ -154,6 +154,14 @@ Pasted images and `![alt](https://…)` images, rendered by the engine through o
   turns external storage off for its export model (single self-contained file);
   `importSQLite` and `PersistenceController.backupStore` copy that folder. Anything new
   that copies the store files needs the same.
+- **The image panel is the only way back.** A reference can be deleted, mangled or
+  undone away while the image stays in Core Data, and nothing in the note names it any
+  more. Manager toolbar → `photo.on.rectangle.angled` (single note selected, and only
+  when that note has images) opens `NoteImagesPopover`: everything `ownerNoteID` puts
+  under this note plus everything its text references, with an Insert button per row.
+  Names are not stored — `NoteImageStore.defaultName(for:fileExtension:)` rebuilds
+  `Pasted image <createdAt>.png`, the same string the paste path writes, so a pasted
+  screenshot comes back under its original name and an imported file does not.
 - **The UUID is not in the editor's buffer.** The engine keeps `![[name]]` in the text
   view and parks `|UUID` on a `.wikiLinkID` text attribute, re-attaching it on every
   writeback (`WikiLinkService.makeStorageState`). So the raw text you see on screen —
