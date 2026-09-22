@@ -154,6 +154,14 @@ Pasted images and `![alt](https://…)` images, rendered by the engine through o
   turns external storage off for its export model (single self-contained file);
   `importSQLite` and `PersistenceController.backupStore` copy that folder. Anything new
   that copies the store files needs the same.
+- **The UUID is not in the editor's buffer.** The engine keeps `![[name]]` in the text
+  view and parks `|UUID` on a `.wikiLinkID` text attribute, re-attaching it on every
+  writeback (`WikiLinkService.makeStorageState`). So the raw text you see on screen —
+  and anything derived from the buffer — has no UUID in it. Upstream 0.13.0 lost it on
+  three ordinary edits (insert at the start of a name, retype a whole name, copy/cut);
+  a lost UUID is unrecoverable, the image is still stored but nothing names it.
+  **`project.yml` therefore pins a fork**, `xVanTuring/swift-markdown-engine`
+  `perch/wikilink-id-survival` — see the comment there before upgrading the engine.
 - **CloudKit**: SchemaV5 adds a record type. Before shipping a release, run Settings →
   iCloud Sync → "Initialize Cloud schema (Development)" from a Debug build, then deploy
   Development → Production in the CloudKit Console. Otherwise the release build's

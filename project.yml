@@ -29,9 +29,17 @@ packages:
   #   - MarkdownEngineCodeBlocks  HighlighterSwift 代码高亮 turnkey bridge
   #   - MarkdownEngineLatex       SwiftMath LaTeX turnkey bridge
   # 后两者把 HighlighterSwift / SwiftMath 作为传递依赖带进来。
+  #
+  # ⚠️ 暂时指向 fork,不是上游。上游 0.13.0 会丢 `![[名称|UUID]]` 里的 UUID ——
+  # 缓冲区里只有显示形式 `![[名称]]`,UUID 挂在 `.wikiLinkID` 文本属性上,
+  # 有三种普通编辑会把它弄丢(名字开头插字符 / 整段改名 / 复制粘贴),丢了
+  # 图片就永远找不回来。fork 的 perch/wikilink-id-survival 分支修了这三条,
+  # 跑通了上游全部 513 个测试;详见该 commit 的说明。
+  # 按 revision 锁 commit,不按 tag —— tag 可移动,这里要的是可复现。
+  # 上游合并或发新版后应尽快切回 url: https://github.com/nodes-app/swift-markdown-engine
   MarkdownEngine:
-    url: https://github.com/nodes-app/swift-markdown-engine
-    exactVersion: "0.13.0"
+    url: https://github.com/xVanTuring/swift-markdown-engine
+    revision: "3b1e85ce1e733cfd1e34b514b349dfd3be170827"   # tag 0.13.0-perch.1
 
 settings:
   base:
