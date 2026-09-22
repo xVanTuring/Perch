@@ -9,6 +9,50 @@
     <language>en</language>
     <!-- BEGIN-ITEMS (release.sh inserts new entries here, newest first) -->
     <item>
+      <title>v2.5.0</title>
+      <pubDate>Tue, 22 Sep 2026 06:16:43 +0000</pubDate>
+      <sparkle:version>18</sparkle:version>
+      <sparkle:shortVersionString>2.5.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <description xml:lang="en"><![CDATA[
+<h4>New</h4>
+<ul>
+<li><strong>Images in notes</strong> — paste a screenshot, or copy an image file in Finder and paste it into a note. The image is kept in the note library rather than as a link to a file on disk, so moving or deleting the original does not break it, and it syncs to your other Macs through iCloud.</li>
+<li><strong>Remote images</strong> — <code>![alt](<a href="https://…)">https://…)</a></code> renders inline. Downloaded once and cached.</li>
+<li><strong>Image panel</strong> — a new button in the manager window's toolbar lists every image a note holds, with thumbnails, and puts any of them back into the text. An image outlives the line that points at it, so deleting that line by accident no longer loses the picture.</li>
+<li><strong>Highlight</strong> — <code>==highlighted text==</code> is now supported, with a Highlight entry in the right-click Format menu.</li>
+</ul>
+<h4>Improved</h4>
+<ul>
+<li>The right-click <strong>Format</strong> menu is back: bold, italic, headings and lists.</li>
+<li>An image's line in the source now reads <code>![[name|id]]</code> in full. The id used to be hidden, and a few ordinary edits — deleting a bracket, retyping the name, copying the line — quietly took it away and left a picture nothing could find. It is in the text now, where nothing can lose it.</li>
+<li>Updated the Markdown editor engine: block formulas typeset properly, tables follow the window width while you resize, and numbered lists keep their painted numbers under the caret.</li>
+<li>Long note and group names in the menu bar are shortened by how wide they actually draw, so the menu keeps its shape.</li>
+<li>Note titles no longer show <code>==</code> or <code>~~</code> markers.</li>
+</ul>
+<p><a href="https://github.com/xVanTuring/Perch/releases/tag/v2.5.0">View full release on GitHub →</a></p>
+      ]]></description>
+      <description xml:lang="zh"><![CDATA[
+<h4>新增</h4>
+<ul>
+<li><strong>便签里的图片</strong> —— 截图直接粘贴，或者在访达里拷贝图片文件再粘进便签。图片存在便签库里，不是指向磁盘上某个文件的链接，所以原文件移动或删除都不影响它，还会通过 iCloud 同步到你的其他 Mac。</li>
+<li><strong>网络图片</strong> —— <code>![alt](<a href="https://…)">https://…)</a></code> 直接渲染，下载一次后本地缓存。</li>
+<li><strong>图片面板</strong> —— 管理窗口工具栏新增一个按钮，列出这条便签的所有图片（带缩略图），可以把其中任意一张放回正文。图片的寿命比指向它的那一行长，所以误删了那一行，图也不会跟着没。</li>
+<li><strong>高亮</strong> —— 支持 <code>==高亮文字==</code>，右键「格式」菜单里也加了高亮。</li>
+</ul>
+<h4>改进</h4>
+<ul>
+<li>右键 <strong>格式</strong> 菜单回来了：粗体、斜体、标题、列表。</li>
+<li>图片那一行的源码现在完整显示成 <code>![[名称|id]]</code>。这个 id 以前是藏起来的，而几种很普通的编辑 —— 删一个括号、重打名字、复制这一行 —— 会悄悄把它弄掉，留下一张谁也找不到的图。现在它就在正文里，丢不了。</li>
+<li>升级了 Markdown 编辑器引擎：块级公式排版正确了，表格会跟着窗口宽度实时调整，有序列表的编号在光标经过时不再跳回源码里的数字。</li>
+<li>菜单栏里过长的便签名和分组名，按实际绘制宽度截断，菜单不再被撑变形。</li>
+<li>便签标题不再显示 <code>==</code>、<code>~~</code> 这些标记符号。</li>
+</ul>
+<p><a href="https://github.com/xVanTuring/Perch/releases/tag/v2.5.0">在 GitHub 查看完整更新 →</a></p>
+      ]]></description>
+      <enclosure url="https://github.com/xVanTuring/Perch/releases/download/v2.5.0/Perch-2.5.0.zip" length="9219746" type="application/octet-stream" sparkle:edSignature="FelkpsJrCocEdjFJmPFz2pq2wK11mJAKssVDcvdIlcY065fvNVeccn/awdXQ2Zxf5hNIb2w4h5zR3TUAjR9CCw==" />
+    </item>
+    <item>
       <title>v2.4.0</title>
       <pubDate>Fri, 18 Sep 2026 18:56:23 +0000</pubDate>
       <sparkle:version>17</sparkle:version>
