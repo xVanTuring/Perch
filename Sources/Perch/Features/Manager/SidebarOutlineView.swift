@@ -821,15 +821,36 @@ final class NoteRowCellView: NSTableCellView {
     /// 拖起来就只剩裸标题文字。整行截图当成唯一的拖拽预览内容,颜色条跟着
     /// 一起带上,还顺带省了自己拼 NSDraggingImageComponent 数组、维护 frame
     /// 对齐的活。
+    ///
+    /// 行本身不画底色(平时要跟侧栏自己的选中高亮融在一起),脱离侧栏单独截
+    /// 出来就是全透明——底下管理窗口背景一深一浅,拖着看不出是张"卡片"。
+    /// 这里只在生成这张拖拽预览图时现画一个圆角底再把行内容盖上去,侧栏里
+    /// 真实行的样子不受影响。
     override var draggingImageComponents: [NSDraggingImageComponent] {
-        guard let rep = bitmapImageRepForCachingDisplay(in: bounds) else {
+        guard let rowRep = bitmapImageRepForCachingDisplay(in: bounds) else {
             return super.draggingImageComponents
         }
-        cacheDisplay(in: bounds, to: rep)
-        let image = NSImage(size: bounds.size)
-        image.addRepresentation(rep)
+        cacheDisplay(in: bounds, to: rowRep)
+        let rowImage = NSImage(size: bounds.size)
+        rowImage.addRepresentation(rowRep)
+
+        let size = bounds.size
+        var card = NSImage(size: size)
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            card = NSImage(size: size, flipped: false) { rect in
+                let path = NSBezierPath(roundedRect: rect.insetBy(dx: 0.5, dy: 0.5), xRadius: 6, yRadius: 6)
+                NSColor.windowBackgroundColor.setFill()
+                path.fill()
+                NSColor.separatorColor.setStroke()
+                path.lineWidth = 1
+                path.stroke()
+                rowImage.draw(in: rect)
+                return true
+            }
+        }
+
         let component = NSDraggingImageComponent(key: .icon)
-        component.contents = image
+        component.contents = card
         component.frame = bounds
         return [component]
     }
