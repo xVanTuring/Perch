@@ -198,6 +198,12 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
     /// to the binding and we'd loop.
     private var suppressSelectionWriteback = false
 
+    /// 排查侧栏选中闪烁用(#temp-debug,问题定位后可删)。只留结构快照给
+    /// applySnapshot 判断这次 reload 是不是"纯选中回环"(内容没变、只是
+    /// selection 走了一圈绑定又发下来),日志据此区分"真的有数据变化"
+    /// 还是"选中触发的多余 reloadData"。
+    private var lastAppliedSnapshot: SidebarSnapshot?
+
     init(_ parent: SidebarOutlineView) {
         self.parent = parent
     }
@@ -257,6 +263,11 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
         // Save current selection to re-apply after reload (selectRowIndexes uses
         // row indices which are invalidated by reload).
         let preselected = parent.selection
+        #if DEBUG
+        let structurallySame = lastAppliedSnapshot == s
+        NSLog("Perch Sidebar: applySnapshot expandAll=%@ structurallySame=%@ selection=%@",
+              String(expandAll), String(structurallySame), preselected.map(\.uuidString).joined(separator: ","))
+        #endif
         suppressSelectionWriteback = true
         outlineView.reloadData()
         if expandAll {
@@ -265,6 +276,7 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
         // Re-apply previous selection by item identity, not row index.
         applySelection(preselected, on: outlineView)
         suppressSelectionWriteback = false
+        lastAppliedSnapshot = s
     }
 
     // MARK: - Selection bridging
@@ -418,10 +430,18 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
     // MARK: - Selection callback
 
     func outlineViewSelectionDidChange(_ notification: Notification) {
+        #if DEBUG
+        NSLog("Perch Sidebar: selectionDidChange suppressed=%@", String(suppressSelectionWriteback))
+        #endif
         guard !suppressSelectionWriteback else { return }
         guard let outlineView = controller?.outlineView else { return }
         let new = currentSelectionUUIDs(in: outlineView)
         if new != parent.selection {
+            #if DEBUG
+            NSLog("Perch Sidebar: selection binding push old=%@ new=%@",
+                  parent.selection.map(\.uuidString).joined(separator: ","),
+                  new.map(\.uuidString).joined(separator: ","))
+            #endif
             // SwiftUI bindings should be hopped to the next runloop tick to
             // avoid "Modifying state during view update" warnings when selection
             // is changed inside a body invocation.
@@ -437,6 +457,9 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
         guard let item = item as? SidebarItem,
               case .note(let oid) = item,
               let note = noteByID[oid] else { return nil }
+        #if DEBUG
+        NSLog("Perch Sidebar: drag started note=%@", note.id.uuidString)
+        #endif
         let pb = NSPasteboardItem()
         // Multi-drag source: if the dragged note is part of the current
         // selection, the table view will call this for each selected note
@@ -451,6 +474,9 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
         // we coerce to its parent group). Reject drops "between" rows
         // (index != NSOutlineViewDropOnItemIndex above the parent itself).
         guard let item = item as? SidebarItem else { return [] }
+        #if DEBUG
+        NSLog("Perch Sidebar: validateDrop item=%@ index=%d", String(describing: item), index)
+        #endif
 
         switch item {
         case .group, .ungroupedHeader:
@@ -486,6 +512,10 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
             }
         }
         guard !ids.isEmpty else { return false }
+        #if DEBUG
+        NSLog("Perch Sidebar: acceptDrop ids=%@ target=%@",
+              ids.map(\.uuidString).joined(separator: ","), target?.id.uuidString ?? "ungrouped")
+        #endif
         parent.onMove(ids, target)
         return true
     }
