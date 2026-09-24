@@ -131,6 +131,13 @@ final class SidebarOutlineNSView: NSOutlineView {
         }
         return coordinator?.menuForSidebarItem(item)
     }
+
+    /// 快速上下乱点时容易被误判成拖拽：先按 `SidebarDragThreshold`（距离 + 按住时间）
+    /// 判定点击还是拖拽，再交给 NSTableView 自己的处理。
+    override func mouseDown(with event: NSEvent) {
+        SidebarDragThreshold.holdUntilDecided(after: event)
+        super.mouseDown(with: event)
+    }
 }
 
 /// Hosts the NSOutlineView inside an NSScrollView. Configured for source-list
