@@ -58,6 +58,10 @@ final class TaskProgressPieView: NSView {
     var progress: Note.TaskProgress? {
         didSet { if progress != oldValue { needsDisplay = true } }
     }
+    /// 圆环和扇形的基础色(各自再乘透明度)。侧栏选中行在强调色背景上时换成反白色。
+    var baseColor: NSColor = .labelColor {
+        didSet { if baseColor != oldValue { needsDisplay = true } }
+    }
 
     override var intrinsicContentSize: NSSize { NSSize(width: 14, height: 14) }
 
@@ -75,7 +79,7 @@ final class TaskProgressPieView: NSView {
         // 轨道环:inset 0.5 让 1pt 线完全落在圆内不被裁。
         let ring = NSBezierPath(ovalIn: box.insetBy(dx: 0.5, dy: 0.5))
         ring.lineWidth = 1
-        NSColor.labelColor.withAlphaComponent(0.22).setStroke()
+        baseColor.withAlphaComponent(0.22).setStroke()
         ring.stroke()
 
         // 完成扇形:AppKit y 向上,12 点 = 90°,顺时针 = 角度递减。
@@ -92,7 +96,7 @@ final class TaskProgressPieView: NSView {
             clockwise: true
         )
         wedge.close()
-        NSColor.labelColor.withAlphaComponent(0.55).setFill()
+        baseColor.withAlphaComponent(0.55).setFill()
         wedge.fill()
     }
 }

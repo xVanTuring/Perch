@@ -29,6 +29,25 @@ enum SidebarItem: Hashable {
     case group(NSManagedObjectID)
     case ungroupedHeader
     case note(NSManagedObjectID)
+
+    /// 分组 / 未分组标题:有子条目的节点。
+    var isContainer: Bool {
+        if case .note = self { return false }
+        return true
+    }
+}
+
+/// 交给 NSOutlineView 的 item。按 SidebarItem 缓存在 coordinator 里,同一个条目永远是同一个对象。
+/// 不直接传 SidebarItem:Swift 枚举作为 `Any` 传进 AppKit 每次都会装箱成新对象,
+/// 展开状态、`row(forItem:)`、`reloadItem` 都靠对象身份,可能对不上。
+final class SidebarNode: NSObject {
+    let item: SidebarItem
+    init(_ item: SidebarItem) { self.item = item }
+}
+
+/// outline 回调里的 item → SidebarItem。
+private func sidebarItem(_ any: Any?) -> SidebarItem? {
+    (any as? SidebarNode)?.item
 }
 
 /// Snapshot passed from SwiftUI parent to the bridge each render. Built once
@@ -125,7 +144,7 @@ final class SidebarOutlineNSView: NSOutlineView {
         // here (Apple's HIG: right-click only changes selection when the click
         // lands outside the current selection). The menu builder uses the
         // current SwiftUI selection set as its "targets" set.
-        if let item = item as? SidebarItem, case .note = item,
+        if let clicked = sidebarItem(item), case .note = clicked,
            !selectedRowIndexes.contains(row) {
             selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
         }
@@ -189,31 +208,26 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
     var parent: SidebarOutlineView
     weak var controller: SidebarOutlineController?
 
-    /// Top-level items in display order.
+    /// outline 当前显示内容的镜像:顶层条目 + 每个分组的子条目,按显示顺序。
+    /// 数据源方法只读这两个;增量更新时和 insert / remove / move 调用同步修改,
+    /// 保证 AppKit 看到的行永远和它自己记录的一致。
     private var topLevel: [SidebarItem] = []
+    private var childrenForParent: [SidebarItem: [SidebarItem]] = [:]
     /// note objectID → Note. Used to hydrate the lightweight SidebarItem cases.
     private var noteByID: [NSManagedObjectID: Note] = [:]
     private var groupByID: [NSManagedObjectID: NoteGroup] = [:]
     /// note objectID → its parent SidebarItem (group | ungrouped header).
     /// Outline view passes Any? for items; we need parent lookup for drop coercion.
     private var parentItemForNote: [NSManagedObjectID: SidebarItem] = [:]
-    /// Children arrays per parent, in display order.
-    private var childrenForParent: [SidebarItem: [SidebarItem]] = [:]
+
+    /// SidebarItem → 交给 NSOutlineView 的节点对象,见 `SidebarNode`。
+    private var nodes: [SidebarItem: SidebarNode] = [:]
+    private var didInitialLoad = false
 
     /// Suppress feedback when SwiftUI is pushing a selection change down to
     /// AppKit — otherwise selectionDidChange would write the same value back
     /// to the binding and we'd loop.
     private var suppressSelectionWriteback = false
-
-    /// #5(侧栏选中闪烁):合并同一次用户操作触发的连续 `applySnapshot` 调用。
-    /// 实测点一下笔记,SwiftUI 会在 ~20ms 内把 `updateNSViewController` 连
-    /// 发两次(同一个、没有任何数据变化的 selection),每次都各自跑一遍
-    /// `reloadData()` + 重新选中 —— 这一整表拆了建、建了拆两遍就是闪烁的
-    /// 根因。这里不去猜"这次调用要不要 reload"(试过按 ID 集合猜,会漏掉
-    /// 正文编辑不刷新标题的情况,见下面 performReload 的注释),而是把连续
-    /// 到达的调用去抖合并成一次,用最新的数据跑——正确性不变,只是把
-    /// "同一拍里来两次"合并成一次真正的重建。
-    private var pendingReload: DispatchWorkItem?
 
     init(_ parent: SidebarOutlineView) {
         self.parent = parent
@@ -221,14 +235,15 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
 
     // MARK: - Snapshot application
 
+    /// 每次 SwiftUI 推新快照都会调用。不再 `reloadData()`(以前靠 50ms 去抖把
+    /// "同一拍里来两次"的整表重建合并成一次来压选中闪烁):现在对比新旧结构,用
+    /// insert / remove / move 增量更新,选中和展开状态不会被拆掉重建,行是动画移过去的。
+    /// 结构不变时就只剩刷新行内容一步,来几次都不闪。
     func applySnapshot(_ s: SidebarSnapshot, expandAll: Bool) {
-        // Rebuild lookup tables synchronously — cheap, and menus/drag/count
-        // badges need up-to-date Note/NoteGroup references immediately even
-        // while the visual reload below is debounced.
+        // Lookup tables — cheap, rebuilt every time.
         groupByID.removeAll(keepingCapacity: true)
         noteByID.removeAll(keepingCapacity: true)
         parentItemForNote.removeAll(keepingCapacity: true)
-        childrenForParent.removeAll(keepingCapacity: true)
 
         for g in s.groups { groupByID[g.objectID] = g }
         for (_, list) in s.notesByGroup {
@@ -239,83 +254,163 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
             for n in flat { noteByID[n.objectID] = n }
         }
 
-        // Build top-level + parent/child maps.
+        // Target structure: top-level + parent/child maps.
+        var targetTop: [SidebarItem] = []
+        var targetChildren: [SidebarItem: [SidebarItem]] = [:]
         if let flat = s.flatNotes {
             // No groups at all — flat list, no headers.
-            topLevel = flat.map { .note($0.objectID) }
+            targetTop = flat.map { .note($0.objectID) }
         } else {
-            var top: [SidebarItem] = []
             for g in s.groups {
                 let groupItem = SidebarItem.group(g.objectID)
-                top.append(groupItem)
-                let kids = (s.notesByGroup[g.objectID] ?? []).map { note -> SidebarItem in
-                    let item = SidebarItem.note(note.objectID)
+                targetTop.append(groupItem)
+                targetChildren[groupItem] = (s.notesByGroup[g.objectID] ?? []).map { note -> SidebarItem in
                     parentItemForNote[note.objectID] = groupItem
-                    return item
+                    return .note(note.objectID)
                 }
-                childrenForParent[groupItem] = kids
             }
-            top.append(.ungroupedHeader)
-            let ungroupedKids = s.ungroupedNotes.map { note -> SidebarItem in
-                let item = SidebarItem.note(note.objectID)
+            targetTop.append(.ungroupedHeader)
+            targetChildren[.ungroupedHeader] = s.ungroupedNotes.map { note -> SidebarItem in
                 parentItemForNote[note.objectID] = .ungroupedHeader
-                return item
+                return .note(note.objectID)
             }
-            childrenForParent[.ungroupedHeader] = ungroupedKids
-            topLevel = top
         }
 
-        guard controller?.outlineView != nil else { return }
-
-        if expandAll {
-            // Initial setup (makeNSViewController) — must run synchronously:
-            // the caller reads outlineView.selectedRowIndexes right after
-            // this returns to scroll the restored selection into view.
-            pendingReload?.cancel()
-            performReload(expandAll: true)
+        guard let outlineView = controller?.outlineView else {
+            topLevel = targetTop
+            childrenForParent = targetChildren
             return
         }
 
-        // Debounce: cancel whatever the previous call scheduled and schedule
-        // fresh — if another applySnapshot lands within the window (the
-        // observed same-click double-fire), only the latest one actually
-        // reloads.
-        #if DEBUG
-        if let pendingReload, !pendingReload.isCancelled {
-            NSLog("Perch Sidebar: applySnapshot coalesced a still-pending reload")
-        }
-        #endif
-        pendingReload?.cancel()
-        let work = DispatchWorkItem { [weak self] in self?.performReload(expandAll: false) }
-        pendingReload = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: work)
-    }
-
-    /// **Always reloadData** (once the debounce above has settled). Earlier
-    /// we tried skipping this when the snapshot was structurally identical
-    /// (same NSManagedObjectIDs in the same order), but that misses edits to
-    /// a note's *content* — typing into a note doesn't change the ID set, so
-    /// the row's title would stay stuck until something else forced a
-    /// reload. NSOutlineView reuses cell views, so reloadData for ~30
-    /// visible rows is cheap; the debounce above is what keeps it from
-    /// running twice for one click.
-    private func performReload(expandAll: Bool) {
-        guard let outlineView = controller?.outlineView else { return }
-        // Save current selection to re-apply after reload (selectRowIndexes uses
-        // row indices which are invalidated by reload).
         let preselected = parent.selection
-        #if DEBUG
-        NSLog("Perch Sidebar: performReload expandAll=%@ selection=%@",
-              String(expandAll), preselected.map(\.uuidString).joined(separator: ","))
-        #endif
         suppressSelectionWriteback = true
-        outlineView.reloadData()
-        if expandAll {
+        if expandAll || !didInitialLoad {
+            // Initial setup (makeNSViewController) — must run synchronously:
+            // the caller reads outlineView.selectedRowIndexes right after
+            // this returns to scroll the restored selection into view.
+            topLevel = targetTop
+            childrenForParent = targetChildren
+            outlineView.reloadData()
             outlineView.expandItem(nil, expandChildren: true)
+            didInitialLoad = true
+        } else {
+            animateChanges(in: outlineView, toTop: targetTop, children: targetChildren)
+            // 结构对上了,但笔记正文 / 分组名可能变了(打字时 ID 集合不变,标题要跟着刷)。
+            // 只让现有行重新取 cell 内容,不动结构和选中,不会闪。
+            if outlineView.numberOfRows > 0 {
+                outlineView.reloadData(forRowIndexes: IndexSet(integersIn: 0..<outlineView.numberOfRows),
+                                       columnIndexes: IndexSet(integer: 0))
+            }
         }
-        // Re-apply previous selection by item identity, not row index.
+        // Re-apply selection by item identity, not row index.
         applySelection(preselected, on: outlineView)
         suppressSelectionWriteback = false
+
+        // 丢掉已经不存在的条目的节点缓存
+        let alive = Set(targetTop + targetChildren.values.flatMap { $0 })
+        nodes = nodes.filter { alive.contains($0.key) }
+    }
+
+    // MARK: - Incremental updates
+
+    /// 对比镜像(`topLevel` / `childrenForParent`)和目标结构,用增量操作把 outline 变成目标的样子。
+    /// 顺序:先删,再按目标顺序逐个"放到位"(已有的 move,新的 insert)。按下标从小到大处理,
+    /// 处理到 i 时前面 0..<i 已经是最终状态,所以要找的条目一定在 i 或之后(或者在别的父节点下)。
+    private func animateChanges(in outlineView: NSOutlineView,
+                                toTop targetTop: [SidebarItem],
+                                children targetChildren: [SidebarItem: [SidebarItem]]) {
+        let targetSet = Set(targetTop + targetChildren.values.flatMap { $0 })
+        var newContainers: [SidebarItem] = []
+
+        outlineView.beginUpdates()
+
+        // 1. 分组里不再存在的笔记
+        for (container, kids) in childrenForParent {
+            let gone = IndexSet(kids.indices.filter { !targetSet.contains(kids[$0]) })
+            guard !gone.isEmpty else { continue }
+            childrenForParent[container]?.remove(atOffsets: gone)
+            outlineView.removeItems(at: gone, inParent: node(for: container), withAnimation: .effectFade)
+        }
+        // 2. 顶层不再存在的条目(删掉的分组连同镜像里剩下的子条目一起丢)
+        let goneTop = IndexSet(topLevel.indices.filter { !targetSet.contains(topLevel[$0]) })
+        if !goneTop.isEmpty {
+            for i in goneTop { childrenForParent[topLevel[i]] = nil }
+            topLevel.remove(atOffsets: goneTop)
+            outlineView.removeItems(at: goneTop, inParent: nil, withAnimation: .effectFade)
+        }
+        // 3. 顶层就位
+        for (i, item) in targetTop.enumerated() {
+            if place(item, at: i, under: nil, in: outlineView) { newContainers.append(item) }
+        }
+        // 4. 每个分组的笔记就位(可能来自别的分组,或者从平铺切到分组时来自顶层)
+        for container in targetTop {
+            for (i, item) in (targetChildren[container] ?? []).enumerated() {
+                _ = place(item, at: i, under: container, in: outlineView)
+            }
+        }
+
+        outlineView.endUpdates()
+
+        // 新出现的分组默认展开(跟首次加载时 expandAll 一致)
+        for container in newContainers {
+            outlineView.expandItem(node(for: container))
+        }
+    }
+
+    /// 把 `item` 放到 `parent`(nil = 顶层)下第 `index` 位。返回是否新插入了一个分组。
+    private func place(_ item: SidebarItem, at index: Int, under parentItem: SidebarItem?,
+                       in outlineView: NSOutlineView) -> Bool {
+        let list = children(of: parentItem)
+        if index < list.count, list[index] == item { return false }
+
+        if let (from, j) = locate(item) {
+            var source = children(of: from)
+            source.remove(at: j)
+            setChildren(source, of: from)
+            var dest = children(of: parentItem)
+            dest.insert(item, at: index)
+            setChildren(dest, of: parentItem)
+            outlineView.moveItem(at: j, inParent: from.map { node(for: $0) },
+                                 to: index, inParent: parentItem.map { node(for: $0) })
+            return false
+        }
+
+        var dest = children(of: parentItem)
+        dest.insert(item, at: index)
+        setChildren(dest, of: parentItem)
+        let isContainer = item.isContainer
+        if isContainer { childrenForParent[item] = [] }  // 子条目在第 4 步插入
+        outlineView.insertItems(at: IndexSet(integer: index), inParent: parentItem.map { node(for: $0) },
+                                withAnimation: .effectFade)
+        return isContainer
+    }
+
+    private func children(of parentItem: SidebarItem?) -> [SidebarItem] {
+        guard let parentItem else { return topLevel }
+        return childrenForParent[parentItem] ?? []
+    }
+
+    private func setChildren(_ list: [SidebarItem], of parentItem: SidebarItem?) {
+        if let parentItem { childrenForParent[parentItem] = list } else { topLevel = list }
+    }
+
+    /// 条目在镜像里的位置:(父节点, 下标),父节点 nil = 顶层。
+    private func locate(_ item: SidebarItem) -> (SidebarItem?, Int)? {
+        if let i = topLevel.firstIndex(of: item) { return (nil, i) }
+        for (container, kids) in childrenForParent {
+            if let i = kids.firstIndex(of: item) { return (container, i) }
+        }
+        return nil
+    }
+
+    // MARK: - Nodes
+
+    /// 同一个 SidebarItem 永远返回同一个节点对象。
+    private func node(for item: SidebarItem) -> SidebarNode {
+        if let existing = nodes[item] { return existing }
+        let created = SidebarNode(item)
+        nodes[item] = created
+        return created
     }
 
     // MARK: - Selection bridging
@@ -334,7 +429,7 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
     private func applySelection(_ ids: Set<UUID>, on outlineView: NSOutlineView) {
         var rows = IndexSet()
         for row in 0..<outlineView.numberOfRows {
-            if let item = outlineView.item(atRow: row) as? SidebarItem,
+            if let item = sidebarItem(outlineView.item(atRow: row)),
                case .note(let oid) = item,
                let note = noteByID[oid],
                !note.isDeleted,
@@ -348,7 +443,7 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
     private func currentSelectionUUIDs(in outlineView: NSOutlineView) -> Set<UUID> {
         var ids: Set<UUID> = []
         for row in outlineView.selectedRowIndexes {
-            if let item = outlineView.item(atRow: row) as? SidebarItem,
+            if let item = sidebarItem(outlineView.item(atRow: row)),
                case .note(let oid) = item,
                let note = noteByID[oid],
                !note.isDeleted {
@@ -362,7 +457,7 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
 
     func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
         if item == nil { return topLevel.count }
-        guard let parent = item as? SidebarItem else { return 0 }
+        guard let parent = sidebarItem(item) else { return 0 }
         switch parent {
         case .group, .ungroupedHeader:
             return childrenForParent[parent]?.count ?? 0
@@ -372,13 +467,12 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
     }
 
     func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
-        if item == nil { return topLevel[index] }
-        guard let parent = item as? SidebarItem else { return SidebarItem.ungroupedHeader }
-        return childrenForParent[parent]?[index] ?? SidebarItem.ungroupedHeader
+        guard let parent = sidebarItem(item) else { return node(for: topLevel[index]) }
+        return node(for: childrenForParent[parent]?[index] ?? .ungroupedHeader)
     }
 
     func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
-        guard let item = item as? SidebarItem else { return false }
+        guard let item = sidebarItem(item) else { return false }
         switch item {
         case .group, .ungroupedHeader: return true
         case .note: return false
@@ -389,7 +483,7 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
 
     func outlineView(_ outlineView: NSOutlineView, isGroupItem item: Any) -> Bool {
         // Source-list style: top-level items render as gray section headers.
-        guard let item = item as? SidebarItem else { return false }
+        guard let item = sidebarItem(item) else { return false }
         switch item {
         case .group, .ungroupedHeader: return true
         case .note: return false
@@ -412,7 +506,7 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
     }
 
     func outlineView(_ outlineView: NSOutlineView, shouldSelectItem item: Any) -> Bool {
-        guard let item = item as? SidebarItem else { return false }
+        guard let item = sidebarItem(item) else { return false }
         // Group/header rows aren't selectable as notes — only note rows feed
         // the SwiftUI selection set.
         switch item {
@@ -422,7 +516,7 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
     }
 
     func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
-        guard let item = item as? SidebarItem else { return nil }
+        guard let item = sidebarItem(item) else { return nil }
         switch item {
         case .group(let oid):
             let name = groupByID[oid]?.name ?? ""
@@ -450,7 +544,7 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
             view.identifier = Self.groupHeaderID
         }
         let count = childrenForParent[item]?.count ?? 0
-        view.configure(text: text, hiddenFromMenu: hiddenFromMenu, count: count, isExpanded: outlineView.isItemExpanded(item))
+        view.configure(text: text, hiddenFromMenu: hiddenFromMenu, count: count, isExpanded: outlineView.isItemExpanded(node(for: item)))
         return view
     }
 
@@ -493,7 +587,7 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
     // MARK: - Drag and drop
 
     func outlineView(_ outlineView: NSOutlineView, pasteboardWriterForItem item: Any) -> NSPasteboardWriting? {
-        guard let item = item as? SidebarItem,
+        guard let item = sidebarItem(item),
               case .note(let oid) = item,
               let note = noteByID[oid] else { return nil }
         #if DEBUG
@@ -508,11 +602,61 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
         return pb
     }
 
+    /// 拖拽图换成完整的一行:圆角底板 + cell 截图(色条 + 标题 + 进度饼)。
+    /// 默认实现只从 cell 的 imageView / textField 拼图,所以以前只剩标题文字。
+    ///
+    /// 之前(61eba30 起,已回滚)试过在 NoteRowCellView 上重写 draggingImageComponents,
+    /// 回滚原因是拖拽图半透明——那是系统对所有拖拽图统一加的效果,公开 API 改不了,这里也一样。
+    /// 这里在会话开始时统一设置;cell 截图用 cacheDisplay 同步画完,底板在 lockFocus 里按行的外观立即画,
+    /// 不用懒执行的 drawingHandler(深色模式下颜色会按错的外观解析,d5e33ce 踩过)。
+    func outlineView(_ outlineView: NSOutlineView, draggingSession session: NSDraggingSession,
+                     willBeginAt screenPoint: NSPoint, forItems draggedItems: [Any]) {
+        if draggedItems.count > 1 { session.draggingFormation = .stack }
+        session.enumerateDraggingItems(options: [], for: outlineView,
+                                       classes: [NSPasteboardItem.self], searchOptions: [:]) { dragItem, index, _ in
+            guard index < draggedItems.count else { return }
+            let row = outlineView.row(forItem: draggedItems[index])
+            guard row >= 0, let image = Self.rowDragImage(outlineView, row: row) else { return }
+            dragItem.setDraggingFrame(outlineView.rect(ofRow: row), contents: image)
+        }
+    }
+
+    private static func rowDragImage(_ outlineView: NSOutlineView, row: Int) -> NSImage? {
+        guard let cell = outlineView.view(atColumn: 0, row: row, makeIfNecessary: false) as? NSTableCellView,
+              let rep = cell.bitmapImageRepForCachingDisplay(in: cell.bounds) else { return nil }
+        // 选中行的 cell 是反白样式,截图时临时改回普通样式,否则白字画在底板上看不清
+        let savedStyle = cell.backgroundStyle
+        cell.backgroundStyle = .normal
+        cell.cacheDisplay(in: cell.bounds, to: rep)
+        cell.backgroundStyle = savedStyle
+
+        let rowRect = outlineView.rect(ofRow: row)
+        let cellRect = outlineView.convert(cell.bounds, from: cell)
+        let cellOrigin = NSPoint(x: cellRect.minX - rowRect.minX, y: cellRect.minY - rowRect.minY)
+
+        let image = NSImage(size: rowRect.size)
+        outlineView.effectiveAppearance.performAsCurrentDrawingAppearance {
+            image.lockFocusFlipped(true)
+            let card = NSRect(x: max(0, cellOrigin.x - 6), y: 1,
+                              width: rowRect.width - max(0, cellOrigin.x - 6) - 2, height: rowRect.height - 2)
+            let path = NSBezierPath(roundedRect: card, xRadius: 6, yRadius: 6)
+            NSColor.windowBackgroundColor.setFill()
+            path.fill()
+            NSColor.separatorColor.setStroke()
+            path.stroke()
+            rep.draw(in: NSRect(origin: cellOrigin, size: cellRect.size),
+                     from: .zero, operation: .sourceOver, fraction: 1,
+                     respectFlipped: true, hints: nil)
+            image.unlockFocus()
+        }
+        return image
+    }
+
     func outlineView(_ outlineView: NSOutlineView, validateDrop info: NSDraggingInfo, proposedItem item: Any?, proposedChildIndex index: Int) -> NSDragOperation {
         // Only valid drop = onto a group / ungrouped header / a note (which
         // we coerce to its parent group). Reject drops "between" rows
         // (index != NSOutlineViewDropOnItemIndex above the parent itself).
-        guard let item = item as? SidebarItem else { return [] }
+        guard let item = sidebarItem(item) else { return [] }
         #if DEBUG
         NSLog("Perch Sidebar: validateDrop item=%@ index=%d", String(describing: item), index)
         #endif
@@ -520,20 +664,20 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
         switch item {
         case .group, .ungroupedHeader:
             // Force "drop on" semantics — no reordering UI inside groups.
-            outlineView.setDropItem(item, dropChildIndex: NSOutlineViewDropOnItemIndex)
+            outlineView.setDropItem(node(for: item), dropChildIndex: NSOutlineViewDropOnItemIndex)
             return .move
         case .note:
             // User dragged onto a sibling note — coerce to its parent group.
             guard case .note(let oid) = item, let parentItem = parentItemForNote[oid] else {
                 return []
             }
-            outlineView.setDropItem(parentItem, dropChildIndex: NSOutlineViewDropOnItemIndex)
+            outlineView.setDropItem(node(for: parentItem), dropChildIndex: NSOutlineViewDropOnItemIndex)
             return .move
         }
     }
 
     func outlineView(_ outlineView: NSOutlineView, acceptDrop info: NSDraggingInfo, item: Any?, childIndex index: Int) -> Bool {
-        guard let item = item as? SidebarItem else { return false }
+        guard let item = sidebarItem(item) else { return false }
         let target: NoteGroup?
         switch item {
         case .group(let oid):       target = groupByID[oid]
@@ -571,7 +715,7 @@ final class SidebarOutlineCoordinator: NSObject, NSOutlineViewDataSource, NSOutl
     }
 
     func menuForSidebarItem(_ item: Any) -> NSMenu? {
-        guard let item = item as? SidebarItem else { return nil }
+        guard let item = sidebarItem(item) else { return nil }
         switch item {
         case .note(let oid):
             guard let note = noteByID[oid] else { return nil }
@@ -709,7 +853,7 @@ final class WindowKeyStateObserver {
 /// when content empty). Layout via Auto Layout for crisp rendering at any
 /// row height.
 final class NoteRowCellView: NSTableCellView {
-    private let colorBar = NSView()
+    private let colorBar = SidebarColorBarView()
     private let label = NSTextField(labelWithString: "")
     /// 行尾的任务进度饼,靠右对齐。无任务项时隐藏,标题随之延伸到行尾。
     private let pie = TaskProgressPieView()
@@ -731,14 +875,6 @@ final class NoteRowCellView: NSTableCellView {
 
     private func setup() {
         wantsLayer = true
-        // colorBar 用 CAGradientLayer 当宿主层 —— 纯色时是退化的单色渐变(两端同色),
-        // 炫彩时纵向扫一遍彩虹。宿主层 frame 由 AppKit 跟着 view bounds 自动同步。
-        let grad = CAGradientLayer()
-        grad.cornerRadius = 1.5
-        grad.startPoint = CGPoint(x: 0.5, y: 0)
-        grad.endPoint = CGPoint(x: 0.5, y: 1)
-        colorBar.layer = grad
-        colorBar.wantsLayer = true
         colorBar.translatesAutoresizingMaskIntoConstraints = false
         addSubview(colorBar)
 
@@ -772,17 +908,9 @@ final class NoteRowCellView: NSTableCellView {
 
     func configure(with note: Note) {
         let palette = StickyPalette.from(index: note.colorIndex)
-        if let grad = colorBar.layer as? CAGradientLayer {
-            let stops = palette.isRainbow
-                ? StickyPalette.rainbowStops(vivid: true)
-                : [palette.nsColor, palette.nsColor]
-            // dynamic NSColor → cgColor 必须按当前外观解析,否则深浅色会错。
-            var cg: [CGColor] = []
-            effectiveAppearance.performAsCurrentDrawingAppearance {
-                cg = stops.map { $0.cgColor }
-            }
-            grad.colors = cg
-        }
+        colorBar.stops = palette.isRainbow
+            ? StickyPalette.rainbowStops(vivid: true)
+            : [palette.nsColor, palette.nsColor]
 
         let isEmpty = note.content.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         label.stringValue = isEmpty ? L.t(.emptyNote) : note.displayTitle
@@ -821,5 +949,27 @@ final class NoteRowCellView: NSTableCellView {
         super.viewDidMoveToWindow()
         keyState.observe(window)
         updateColors()
+    }
+
+    /// 选中且窗口激活时为 `.emphasized`(强调色背景)。标题 textField 系统会自动反白,
+    /// 自绘的进度饼不会,要自己换成反白色,否则画在强调色背景上看不清。
+    override var backgroundStyle: NSView.BackgroundStyle {
+        didSet {
+            pie.baseColor = backgroundStyle == .emphasized ? .alternateSelectedControlTextColor : .labelColor
+        }
+    }
+}
+
+/// 笔记行的 3pt 竖色条。纯色时两端同色,炫彩时纵向扫一遍彩虹。
+/// 用 `draw(_:)` 自绘而不是 CAGradientLayer 宿主层:拖拽图靠 `cacheDisplay` 截 cell,
+/// 宿主层的内容截不进去。动态颜色在 draw 时按当前外观解析,深浅色切换也自动跟上。
+final class SidebarColorBarView: NSView {
+    var stops: [NSColor] = [] { didSet { needsDisplay = true } }
+
+    override func draw(_ dirtyRect: NSRect) {
+        guard !stops.isEmpty else { return }
+        let path = NSBezierPath(roundedRect: bounds, xRadius: 1.5, yRadius: 1.5)
+        // 90° = 第一个色标在底部,和原来 CAGradientLayer(startPoint y=0,非翻转坐标)方向一致
+        NSGradient(colors: stops)?.draw(in: path, angle: 90)
     }
 }
