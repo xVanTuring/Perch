@@ -13,8 +13,7 @@ struct FloatingNoteView: View {
     /// 用户在设置面板里可关掉这个效果;@AppStorage 跨视图自动同步。
     @AppStorage(SettingsKey.fadeWhenInactive) private var fadeWhenInactive: Bool = true
     /// 双击标题切换折叠的总开关。默认 false —— 用户在 Settings 里自己开。
-    /// 关掉时整个 hit overlay 不渲染,标题区的点击 fall-through 到下面的窗口
-    /// 背景拖动逻辑(isMovableByWindowBackground = true),双击没有任何效果。
+    /// 关掉时标题条命中层照常渲染(负责拖窗),只是双击不再触发折叠。
     @AppStorage(SettingsKey.doubleClickTitleToCollapse) private var doubleClickToCollapseEnabled: Bool = false
     @ObservedObject private var loc = LocalizationManager.shared
     let onClose: () -> Void
@@ -123,16 +122,15 @@ struct FloatingNoteView: View {
                 taskProgress: note.taskProgress
             )
 
-            // 双击命中层。**位于 HoverToolbar 之下** —— × / ⋯ 按钮要先吃到点击。
-            // 高度 = stripHeight:展开态 28pt 不挡编辑器 mouseDown,折叠态 32pt 整条
-            // bar 都能双击展开。设置关掉时整个 overlay 不存在,系统的
-            // isMovableByWindowBackground 接管点击 = 跟未引入此功能时一样。
-            if doubleClickToCollapseEnabled {
-                VStack {
-                    TitleDoubleClickHit(onDoubleClick: onToggleCollapse)
-                        .frame(height: stripHeight)
-                    Spacer(minLength: 0)
-                }
+            // 拖窗 + 双击命中层。**位于 HoverToolbar 之下** —— × / ⋯ 按钮要先吃到点击。
+            // 高度 = stripHeight,跟编辑器上方的 spacer 等高,不挡编辑器 mouseDown;
+            // 折叠态整条 bar 都能拖 / 双击展开。**始终渲染**:它是标题条上唯一能拖窗
+            // 的原生 view(NSHostingView 吞 mouseDown,isMovableByWindowBackground
+            // 管不到)。设置关掉时只是不传双击回调。
+            VStack {
+                TitleDoubleClickHit(onDoubleClick: doubleClickToCollapseEnabled ? onToggleCollapse : nil)
+                    .frame(height: stripHeight)
+                Spacer(minLength: 0)
             }
 
             // 顶部 hover 工具条独立成一个 struct,**自己拥有 hovering @State** ——

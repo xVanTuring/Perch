@@ -47,9 +47,14 @@ struct NoteTitleBar: View {
     }
 }
 
-/// 标题条上的双击命中层。catch mouseDown:clickCount==2 → 触发 onDoubleClick;
-/// 单击 + 真位移 → `window.performDrag(with:)` 转交给系统拖窗 —— 这样这块区域既能
-/// 双击折叠/展开,又不挡用户拖动整个浮窗。
+/// 标题条上的拖窗 + 双击命中层。catch mouseDown:clickCount==2 且 onDoubleClick
+/// 非 nil → 触发 onDoubleClick;单击 + 真位移 → `window.performDrag(with:)` 转交给
+/// 系统拖窗 —— 这样这块区域既能双击折叠/展开,又不挡用户拖动整个浮窗。
+///
+/// **必须始终渲染**,不能跟「双击折叠」开关绑定:窗口内容是 NSHostingView,它吞掉
+/// mouseDown,`isMovableByWindowBackground` 对 SwiftUI 内容不生效;标题条上没有这层
+/// 原生 view 时整个浮窗都拖不动(GitHub #1 #2)。开关关闭时传 `onDoubleClick: nil`,
+/// 双击就按普通按下处理,照样能拖。
 ///
 /// **关键:performDrag 只能等 mouseDragged 累计位移超过阈值再调**。直接在第一次
 /// mouseDown 就 performDrag,触摸板的微抖动会瞬间触发 windowDidMove,导致
@@ -59,7 +64,8 @@ struct NoteTitleBar: View {
 /// 在 ZStack 里**必须放在 HoverToolbar 之下** —— 上层的 × / ⋯ 按钮要先吃到点击。
 /// 自身限定 ~28pt 高顶部条,不会下探到编辑器区域。
 struct TitleDoubleClickHit: NSViewRepresentable {
-    let onDoubleClick: () -> Void
+    /// nil = 双击折叠关闭,只保留拖窗。
+    let onDoubleClick: (() -> Void)?
 
     final class HitView: NSView {
         var onDoubleClick: (() -> Void)?
@@ -70,9 +76,9 @@ struct TitleDoubleClickHit: NSViewRepresentable {
         private static let dragThreshold: CGFloat = 4
 
         override func mouseDown(with event: NSEvent) {
-            if event.clickCount == 2 {
+            if event.clickCount == 2, let onDoubleClick {
                 pendingDownEvent = nil
-                onDoubleClick?()
+                onDoubleClick()
                 return
             }
             pendingDownEvent = event
