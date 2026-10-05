@@ -9,6 +9,42 @@
     <language>en</language>
     <!-- BEGIN-ITEMS (release.sh inserts new entries here, newest first) -->
     <item>
+      <title>v2.6.1</title>
+      <pubDate>Mon, 05 Oct 2026 07:09:51 +0000</pubDate>
+      <sparkle:version>20</sparkle:version>
+      <sparkle:shortVersionString>2.6.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <description xml:lang="en"><![CDATA[
+<h4>Fixed</h4>
+<ul>
+<li><strong>Sticky notes can be dragged again</strong> — with "Double-click title to collapse" turned off (the default), a sticky note could not be moved at all. The title strip now always drags the window; the setting only decides whether a double-click collapses the note.</li>
+<li>Clicking quickly through notes in the manager sidebar no longer starts a drag by accident. A drag now begins only after you move the pointer a little and hold the button for a moment.</li>
+</ul>
+<h4>Improved</h4>
+<ul>
+<li>Dragging a note in the manager sidebar shows the whole row — color bar, title and progress — instead of just the title.</li>
+<li>The manager sidebar updates in place: selection and expanded groups stay as they are, and a note moved to another group slides into its new place.</li>
+<li>The task progress pie stays visible on the selected row in the sidebar.</li>
+</ul>
+<p><a href="https://github.com/xVanTuring/Perch/releases/tag/v2.6.1">View full release on GitHub →</a></p>
+      ]]></description>
+      <description xml:lang="zh"><![CDATA[
+<h4>修复</h4>
+<ul>
+<li><strong>便签又能拖动了</strong> —— 关闭「双击标题折叠」（默认就是关闭的）时，便签窗口完全拖不动。现在按住顶部标题条始终可以拖动窗口，这个开关只决定双击时是否折叠。</li>
+<li>在管理窗口侧栏里快速点选笔记时，不会再被误当成拖动。现在要稍微移动鼠标并按住一小会儿才会开始拖动。</li>
+</ul>
+<h4>改进</h4>
+<ul>
+<li>在管理窗口侧栏拖动笔记时，跟随鼠标的是整行内容（颜色条、标题和进度），不再只有标题文字。</li>
+<li>管理窗口侧栏改为原地更新：选中项和展开的分组保持不变，笔记移到别的分组时会以动画移到新位置。</li>
+<li>侧栏里选中的那一行，任务进度圆饼也能看清了。</li>
+</ul>
+<p><a href="https://github.com/xVanTuring/Perch/releases/tag/v2.6.1">在 GitHub 查看完整更新 →</a></p>
+      ]]></description>
+      <enclosure url="https://github.com/xVanTuring/Perch/releases/download/v2.6.1/Perch-2.6.1.zip" length="9040522" type="application/octet-stream" sparkle:edSignature="+vIYqjbrvsA3U7oasoMr5m1SgoU4N1yo+V2GzWIlGU8+vFCZndp3UoYHObpmv+laTUVdctLXF/DcOmTgncwmCQ==" />
+    </item>
+    <item>
       <title>v2.6.0</title>
       <pubDate>Tue, 22 Sep 2026 07:28:29 +0000</pubDate>
       <sparkle:version>19</sparkle:version>
