@@ -169,7 +169,8 @@ Pasted images and `![alt](https://…)` images, rendered by the engine through o
   three ordinary edits (insert at the start of a name, retype a whole name, copy/cut);
   a lost UUID is unrecoverable, the image is still stored but nothing names it.
   **`project.yml` therefore pins a fork**, `xVanTuring/swift-markdown-engine`
-  `perch/wikilink-id-survival` — see the comment there before upgrading the engine.
+  branch `xvan` (shared with UniReader; tags `<upstream version>-xvan.N`) — see the
+  comment there before upgrading the engine.
 - **CloudKit**: SchemaV5 adds a record type. Before shipping a release, run Settings →
   iCloud Sync → "Initialize Cloud schema (Development)" from a Debug build, then deploy
   Development → Production in the CloudKit Console. Otherwise the release build's

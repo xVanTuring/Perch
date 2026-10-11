@@ -34,16 +34,19 @@ packages:
   # 文本属性上,正文里只留 `![[名称]]`。那个属性只在这段文字还能解析成 embed 时
   # 才活着 —— 删一个括号、整段改名、复制这一行,UUID 就没了,而且找不回来:图片
   # 还在 Core Data 里,但没有任何东西叫得出它。
-  # fork 的 perch/wikilink-id-survival 分支:
+  # fork 的修复(上游 PR #185、#186,还没合并):
   #   - 修了三条会丢 UUID 的编辑路径(名字开头插字符 / 整段改名 / 复制剪切)
   #   - 加了 `ImageEmbedStyle.keepsIDInSource`,把 UUID 留在正文里,从根上去掉
   #     这个旁路通道(Perch 在 MarkdownEngineNoteEditor 里打开了它)
-  # 跑通上游全部测试 + 19 个新增测试。
+  #   - 粘贴的链接直接显示成展示形式;开了 keepsIDInSource 时图片 embed 粘贴后原样保留 UUID
+  # 2026-10-11 起用 fork 的 `xvan` 分支(和 UniReader 共用,原 perch/wikilink-id-survival
+  # 分支不再更新):上游 main(0.14.0 之后 3 个提交)+ 上面的修复 + UniReader 的行内公式 /
+  # 代码块选区 / SwiftMath 断言修复。跑通上游全部测试和 fork 新增的测试。
   # 按 revision 锁 commit,不按 tag —— tag 可移动,这里要的是可复现。
   # 上游合并或发新版后应尽快切回 url: https://github.com/nodes-app/swift-markdown-engine
   MarkdownEngine:
     url: https://github.com/xVanTuring/swift-markdown-engine
-    revision: "e5af18423538ddb31c74086d6021000cb89f0fe2"   # tag 0.13.0-perch.2
+    revision: "8738fcc17a37a2c24ffcadc112b15d3a0eed70eb"   # tag 0.14.0-xvan.1
 
 settings:
   base:
