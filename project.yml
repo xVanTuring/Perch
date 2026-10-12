@@ -42,11 +42,33 @@ packages:
   # 2026-10-11 起用 fork 的 `xvan` 分支(和 UniReader 共用,原 perch/wikilink-id-survival
   # 分支不再更新):上游 main(0.14.0 之后 3 个提交)+ 上面的修复 + UniReader 的行内公式 /
   # 代码块选区 / SwiftMath 断言修复。跑通上游全部测试和 fork 新增的测试。
+  # 0.14.0-xvan.2 在此之上加了两个可关的编辑开关(Perch 接到 Settings → 便签):
+  #   - `ListStyle.autoSpaceTaskCheckbox`(默认开):在列表标记后打 `[` 直接补成 `- [ ] `,
+  #     光标落在空格后(xvan.4 起一个键就够;auto-close pairs 关掉时才还要补 `]`)。
+  #   - `MarkdownEditorConfiguration.editsTablesInPlace`(默认开):点表格单元格原地编辑
+  #     它的 Markdown,表格保持渲染;Tab / 方向键换格、Esc 退出。
+  #     这两个字段 wrapper 的 updateNSView 现在都会同步进 textView,翻开关立刻生效。
+  #     (xvan.2 / xvan.3 时 `editsTablesInPlace` 不同步,Perch 用 `.id` 重建编辑器顶了
+  #     一阵;xvan.4 补上了同步,那个 workaround 已删。)
+  # 0.14.0-xvan.3 把表格的右键菜单交给使用方:引擎不再带菜单,也不再带那套 en/zh-Hans
+  # 资源 —— 模块内的资源包是按**宿主 App** 的本地化解析的,而 Perch.app 没有任何 .lproj,
+  # 所以引擎自己出的标题永远解析成英文,跟不了 Perch 自己的语言设置。现在单元格里右键走
+  # `onTableCellContextMenu` 钩子,拿 `TableCellMenuContext` 自己建菜单;Perch 的 13 个
+  # 动作标题在 `Features/Notes/TableEditMenu.swift`,用 `L.t` 出语言。
+  # 0.14.0-xvan.4 修了三处:上面那条 `editsTablesInPlace` 的运行时同步;单元格里打字不再
+  # 闪一下换行(先把编辑器横向撑开,写回文档后才让列变宽);宽表格内部滚动时单元格编辑器
+  # 跟着滚。顺带把 auto-close pairs 做全了(受 `autoClosePairsEnabled` 管,Perch 没关):
+  # 手动打右括号会跳过已有的那个,选中文字后打左括号或 Markdown 标记
+  # (`( [ { = * _ ~ ` $`)会把选区包起来并保持选中,再打一次就套两层。
+  # 0.14.0-xvan.5 把「智能引号」默认关掉(`SpellCheckingPolicy.automaticQuoteSubstitution`
+  # = false):Markdown 源码要直引号,打 `'` `"` 不再被换成弯引号。Perch 用的就是引擎默认值
+  # (没在别处覆盖),升级即生效。另外 `"` `'` 也进了 xvan.4 那套「选中文字后打标记包起来」
+  # 的集合。
   # 按 revision 锁 commit,不按 tag —— tag 可移动,这里要的是可复现。
   # 上游合并或发新版后应尽快切回 url: https://github.com/nodes-app/swift-markdown-engine
   MarkdownEngine:
     url: https://github.com/xVanTuring/swift-markdown-engine
-    revision: "8738fcc17a37a2c24ffcadc112b15d3a0eed70eb"   # tag 0.14.0-xvan.1
+    revision: "85435e489e30f658df4751f33b5aa101990546e8"   # tag 0.14.0-xvan.5
 
 settings:
   base:
