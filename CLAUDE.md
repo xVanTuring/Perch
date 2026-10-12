@@ -38,7 +38,8 @@ Sources/Perch/
 │  ├─ Floating/          # Sticky note windows (StickyPanel, FloatingNoteWindow,
 │  │                       StickyPalette)
 │  ├─ Notes/             # MarkdownEngineNoteEditor (the one editor), NoteFormatMenu
-│  │                       (right-click Format), Images/ (see "Note images")
+│  │                       (right-click Format), TableEditMenu (right-click a table
+│  │                       cell), Images/ (see "Note images")
 │  ├─ Capture/           # Quick-capture window + Carbon global hotkey
 │  ├─ Manager/           # Centralized management window (NavigationSplitView)
 │  └─ Settings/          # NSTabViewController-based settings + SwiftUI tabs

@@ -23,6 +23,12 @@ struct MarkdownEngineNoteEditor: View {
     /// 跟 Settings → Notes 字号同步;改设置时 engine 通过 updateNSView 自动对齐。
     @AppStorage(SettingsKey.noteFontSize) private var noteFontSize: Int = 14
 
+    /// Settings → 便签里的两个引擎行为开关(都默认开)。引擎 0.14.0-xvan.4 起两个都会被
+    /// wrapper 的 updateNSView 同步进 textView(`lists` 一直同步,`editsTablesInPlace`
+    /// 是 xvan.4 补上的),所以翻开关立刻生效,不用重建编辑器。
+    @AppStorage(SettingsKey.editorTaskCheckboxAutoSpace) private var autoSpaceTaskCheckbox: Bool = true
+    @AppStorage(SettingsKey.editorTablesInPlace) private var editsTablesInPlace: Bool = true
+
     /// 图片来源(本地存储 + 网络图片)。网络图片下载完成时它的 revision 会变,
     /// 订阅它是为了让编辑器重新渲染、引擎重新取图。见 NoteImageProvider。
     @ObservedObject private var images = NoteImageProvider.shared
@@ -46,6 +52,11 @@ struct MarkdownEngineNoteEditor: View {
         // 列表每级缩进。engine 默认 27.5pt 是给宽编辑器调的;便签窗很窄,
         // 列表项(尤其嵌套/换行 hang)左边空白显得太大。收紧到 16pt。
         config.lists.indentPerLevel = 16
+        // 打 `- [` 就直接补成 `- [ ] `(不用再打 `]`,光标落在空格后)。Settings → 便签可关。
+        config.lists.autoSpaceTaskCheckbox = autoSpaceTaskCheckbox
+        // 点表格单元格原地编辑其 Markdown,表格保持渲染(关掉则光标进表格回落到源码)。
+        // 引擎每轮 updateNSView 都会同步这个开关,翻转立刻生效。
+        config.editsTablesInPlace = editsTablesInPlace
         // 图片引用的 UUID 留在正文里(`![[名称|UUID]]`),不走引擎默认的「藏进文本
         // 属性、显示成 ![[名称]]」。属性只在那段文字还能解析成 embed 时才活着 ——
         // 删一个括号、整段改名、把这行复制到别处,UUID 就没了,而且找不回来:图片
@@ -73,7 +84,10 @@ struct MarkdownEngineNoteEditor: View {
             // 粘贴板里有图片就复制进内部存储并插入 `![[名称|UUID]]`;否则返回 nil,
             // 引擎照常按文本粘贴。见 NoteImagePaste。
             onPasteImage: { NoteImagePaste.embed(from: $0, ownerNoteID: ownerNoteID) },
-            onBuildContextMenu: { menu, _ in format.decorate(menu) }
+            onBuildContextMenu: { menu, _ in format.decorate(menu) },
+            // 表格单元格里的右键。引擎不自带表格菜单,标题和语言由 TableEditMenu 出
+            // (引擎那份资源包跟不了 Perch 的运行时语言,见那里的注释)。
+            onTableCellContextMenu: { menu, context in TableEditMenu.decorate(menu, context: context) }
         )
     }
 }

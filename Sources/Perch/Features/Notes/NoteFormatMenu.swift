@@ -89,7 +89,8 @@ struct NoteFormatMenu {
 
 /// 带闭包的菜单项。`NSMenuItem.target` 是弱引用,让菜单项自己当自己的
 /// target,生命周期就跟着菜单走,不需要另外持有。
-private final class ActionMenuItem: NSMenuItem {
+/// (同模块的 `TableEditMenu` 也用它来建表格菜单。)
+final class ActionMenuItem: NSMenuItem {
     private let handler: () -> Void
 
     init(title: String, handler: @escaping () -> Void) {

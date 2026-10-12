@@ -38,6 +38,11 @@ enum SettingsKey {
     static let noteFontSize = "Noticky.noteFontSize"             // Int (12..24,编辑态 NSTextView 字号)
     static let defaultNoteSize = "Noticky.defaultNoteSize"       // String raw,DefaultNoteSize enum
 
+    // 便签编辑器(引擎)行为开关。值直接喂 MarkdownEngine 的 config,见
+    // MarkdownEngineNoteEditor —— 两个都默认 true(跟引擎默认一致)。
+    static let editorTaskCheckboxAutoSpace = "Perch.editorTaskCheckboxAutoSpace" // Bool,引擎 ListStyle.autoSpaceTaskCheckbox
+    static let editorTablesInPlace = "Perch.editorTablesInPlace"                 // Bool,引擎 MarkdownEditorConfiguration.editsTablesInPlace
+
     /// iCloud 同步开关。改这个值后必须重启 Perch —— PersistenceController
     /// 在 init 时一次性读 + 决定走 NSPersistentContainer 还是
     /// NSPersistentCloudKitContainer,运行时无法热切换。
@@ -717,6 +722,8 @@ struct NotesTab: View {
     @AppStorage(SettingsKey.defaultColorIndex) private var defaultColorIndex: Int = 0
     @AppStorage(SettingsKey.noteFontSize) private var noteFontSize: Int = 14
     @AppStorage(SettingsKey.defaultNoteSize) private var defaultNoteSizeRaw: String = DefaultNoteSize.medium.rawValue
+    @AppStorage(SettingsKey.editorTaskCheckboxAutoSpace) private var autoSpaceTaskCheckbox: Bool = true
+    @AppStorage(SettingsKey.editorTablesInPlace) private var tablesInPlace: Bool = true
     @ObservedObject private var loc = LocalizationManager.shared
 
     var body: some View {
@@ -790,10 +797,31 @@ struct NotesTab: View {
             }
             .pickerStyle(.menu)
             .id(loc.current)  // 见 GeneralTab 的 sort picker 同样原因
+
+            // 引擎行为开关。两个都经 MarkdownEngineNoteEditor 写进引擎 config,wrapper 的
+            // updateNSView 每次同步进 textView,翻开关立刻生效(表格原地编辑翻转时引擎还会
+            // 顺手关掉正开着的单元格编辑器)。
+            Toggle(isOn: $autoSpaceTaskCheckbox) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L.t(.notesTaskCheckboxAutoSpace))
+                    Text(L.t(.notesTaskCheckboxAutoSpaceDesc))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            Toggle(isOn: $tablesInPlace) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(L.t(.notesTablesInPlace))
+                    Text(L.t(.notesTablesInPlaceDesc))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
         .formStyle(.grouped)
         .scrollDisabled(true)
-        .frame(width: 760,height: 300)
+        .frame(width: 760,height: 400)
     }
 }
 

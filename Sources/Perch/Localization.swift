@@ -124,6 +124,8 @@ enum LocKey: String {
     // Settings Notes
     case notesDefaultColor, notesDefaultColorRandom, notesFontSize, notesDefaultSize
     case noteSizeSmall, noteSizeMedium, noteSizeLarge
+    case notesTaskCheckboxAutoSpace, notesTaskCheckboxAutoSpaceDesc
+    case notesTablesInPlace, notesTablesInPlaceDesc
 
     // Settings iCloud Sync
     case iCloudEnable, iCloudEnableDesc
@@ -187,6 +189,11 @@ enum LocKey: String {
     // 编辑器右键「格式」菜单(见 NoteFormatMenu)
     case editorFormat, editorBold, editorItalic, editorHighlight
     case editorHeading, editorLists, editorBullet, editorNumbered
+
+    // 表格单元格右键菜单(见 TableEditMenu)
+    case tableInsertRowAbove, tableInsertRowBelow, tableMoveRowUp, tableMoveRowDown, tableDeleteRow
+    case tableInsertColumnLeft, tableInsertColumnRight, tableMoveColumnLeft, tableMoveColumnRight, tableDeleteColumn
+    case tableAlignLeft, tableAlignCenter, tableAlignRight
 
     // File menu IO(md/txt 文件 → 新便签)
     case fileImport
@@ -362,6 +369,10 @@ enum L {
         .notesDefaultColorRandom: "Random (a new color each note)",
         .notesFontSize: "Editor font size",
         .notesDefaultSize: "Default window size",
+        .notesTaskCheckboxAutoSpace: "Complete task checkboxes as you type",
+        .notesTaskCheckboxAutoSpaceDesc: "Typing “- [” completes the checkbox as “- [ ] ” right away — no closing bracket needed — and leaves the caret after the space.",
+        .notesTablesInPlace: "Edit table cells in place",
+        .notesTablesInPlaceDesc: "Click a cell of a table to edit its Markdown right there — the table stays rendered. Off shows the table's source while the caret is inside it.",
         .noteSizeSmall: "Small (240×240)",
         .noteSizeMedium: "Medium (280×280)",
         .noteSizeLarge: "Large (360×360)",
@@ -468,6 +479,13 @@ enum L {
         .editorHighlight: "Highlight",
         .editorHeading: "Heading", .editorLists: "Lists",
         .editorBullet: "Bullet", .editorNumbered: "Numbered",
+        .tableInsertRowAbove: "Insert Row Above", .tableInsertRowBelow: "Insert Row Below",
+        .tableMoveRowUp: "Move Row Up", .tableMoveRowDown: "Move Row Down",
+        .tableDeleteRow: "Delete Row",
+        .tableInsertColumnLeft: "Insert Column Left", .tableInsertColumnRight: "Insert Column Right",
+        .tableMoveColumnLeft: "Move Column Left", .tableMoveColumnRight: "Move Column Right",
+        .tableDeleteColumn: "Delete Column",
+        .tableAlignLeft: "Align Left", .tableAlignCenter: "Align Center", .tableAlignRight: "Align Right",
         .fileImport: "Import…",
         .fileImportDone: "Imported %d note(s).",
         .managerDataMenu: "Data",
@@ -643,6 +661,10 @@ enum L {
         .notesDefaultColorRandom: "随机(每张便签换一个颜色)",
         .notesFontSize: "编辑器字号",
         .notesDefaultSize: "默认窗口尺寸",
+        .notesTaskCheckboxAutoSpace: "自动补全任务复选框",
+        .notesTaskCheckboxAutoSpaceDesc: "输入「- [」就直接补成「- [ ] 」,不用再打右括号,光标停在空格后。",
+        .notesTablesInPlace: "表格原地编辑",
+        .notesTablesInPlaceDesc: "点表格单元格直接改它的 Markdown,表格保持渲染。关掉后光标进表格会回落到源码。",
         .noteSizeSmall: "小 (240×240)",
         .noteSizeMedium: "中 (280×280)",
         .noteSizeLarge: "大 (360×360)",
@@ -749,6 +771,13 @@ enum L {
         .editorHighlight: "高亮",
         .editorHeading: "标题", .editorLists: "列表",
         .editorBullet: "无序列表", .editorNumbered: "有序列表",
+        .tableInsertRowAbove: "在上方插入行", .tableInsertRowBelow: "在下方插入行",
+        .tableMoveRowUp: "上移本行", .tableMoveRowDown: "下移本行",
+        .tableDeleteRow: "删除本行",
+        .tableInsertColumnLeft: "在左侧插入列", .tableInsertColumnRight: "在右侧插入列",
+        .tableMoveColumnLeft: "左移本列", .tableMoveColumnRight: "右移本列",
+        .tableDeleteColumn: "删除本列",
+        .tableAlignLeft: "左对齐", .tableAlignCenter: "居中", .tableAlignRight: "右对齐",
         .fileImport: "导入…",
         .fileImportDone: "已导入 %d 条便签。",
         .managerDataMenu: "数据",
