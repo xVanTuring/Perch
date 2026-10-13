@@ -230,6 +230,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             keyEquivalent: "w"
         ))
 
+        // ⌘S 屏蔽:笔记是自动保存的,没有「保存」动作。但手快按 ⌘S 时没人接,
+        // 事件一路落到 NSTextView → noResponderFor → 系统提示音。挂一个空动作的
+        // 菜单项把它吃掉,浮窗 / Manager / Capture 里都不再响。
+        let saveItem = NSMenuItem(
+            title: "Save",
+            action: #selector(swallowSaveShortcut(_:)),
+            keyEquivalent: "s"
+        )
+        saveItem.target = self
+        fileMenu.addItem(saveItem)
+
         fileMenuItem.submenu = fileMenu
         mainMenu.addItem(fileMenuItem)
 
@@ -288,6 +299,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func manageAllNotesAction(_ sender: Any?) {
         manager.showWindow()
     }
+
+    /// ⌘S 的空动作,见 installMainMenu。
+    @objc private func swallowSaveShortcut(_ sender: Any?) {}
 
     @objc private func importNotesAction(_ sender: Any?) {
         let urls = NoteIOPanels.chooseFilesToImport()
