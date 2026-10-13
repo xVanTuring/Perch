@@ -7,9 +7,12 @@ options:
   groupSortPosition: top
 
 packages:
+  # 3.1.0 起才修好 macOS 26/27 上录制框的清除按钮(上游 issue #241:
+  # 事件监视器吞掉了框内的 mouseUp,NSSearchField 的 × 永远触发不了)。
+  # 别退回 2.x。
   KeyboardShortcuts:
     url: https://github.com/sindresorhus/KeyboardShortcuts
-    from: "2.0.0"
+    from: "3.1.0"
   # Sparkle 2 自动更新框架。装好后:
   #   - `Sources/Perch/Features/Updater/UpdaterService.swift` 用
   #     `SPUStandardUpdaterController` 驱动整条更新流程(拉 appcast、

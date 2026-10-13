@@ -12,7 +12,7 @@ extension KeyboardShortcuts.Name {
     /// 读他们存的那一份,默认值不生效。
     static let quickCapture = Self(
         "quickCapture",
-        default: .init(.n, modifiers: [.command, .shift])
+        initial: .init(.n, modifiers: [.command, .shift])
     )
 
     /// 在预设尺寸间循环切换当前 key 浮窗便签:小 → 中 → 大 → 小(见 `DefaultNoteSize`)。
