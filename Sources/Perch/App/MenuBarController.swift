@@ -600,9 +600,16 @@ final class MenuBarController: NSObject {
         floating.show(note: note)
     }
 
+    /// 菜单里的笔记项是开关:打勾(浮窗可见)时再点 = 关掉浮窗,跟 × 一样清
+    /// isPinned;没打勾(没开过,或被 hideAll / 分组隐藏 orderOut 了)= 打开 /
+    /// 带到最前。判断口径跟打勾一致,都用 isVisible。
     @objc private func openNote(_ sender: NSMenuItem) {
         guard let id = sender.representedObject as? NSManagedObjectID,
               let note = try? context.existingObject(with: id) as? Note else { return }
-        floating.show(note: note)
+        if floating.isVisible(note: note) {
+            floating.toggle(note: note)
+        } else {
+            floating.show(note: note)
+        }
     }
 }
