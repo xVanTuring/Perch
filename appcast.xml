@@ -9,6 +9,32 @@
     <language>en</language>
     <!-- BEGIN-ITEMS (release.sh inserts new entries here, newest first) -->
     <item>
+      <title>v2.7.1</title>
+      <pubDate>Tue, 13 Oct 2026 09:36:49 +0000</pubDate>
+      <sparkle:version>22</sparkle:version>
+      <sparkle:shortVersionString>2.7.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <description xml:lang="en"><![CDATA[
+<h4>Fixed</h4>
+<ul>
+<li><strong>Shortcuts can be cleared again</strong> — on macOS 26 and later, the × button in Settings → Shortcuts did nothing, so a global shortcut could be changed but never removed. Clicking × now removes it and frees the key combination for other apps.</li>
+<li><strong>The menu bar list can close notes too</strong> — clicking a checked note (its sticky is open) now closes the sticky, the same as clicking its × button. Unchecked notes still open or come to the front.</li>
+<li>Pressing ⌘S no longer plays the alert sound. Notes save automatically, so ⌘S now does nothing.</li>
+</ul>
+<p><a href="https://github.com/xVanTuring/Perch/releases/tag/v2.7.1">View full release on GitHub →</a></p>
+      ]]></description>
+      <description xml:lang="zh"><![CDATA[
+<h4>修复</h4>
+<ul>
+<li><strong>快捷键可以清除了</strong> —— 在 macOS 26 及更高版本上，设置 → 快捷键里录制框的 × 按钮点了没有反应，全局快捷键只能改、不能删。现在点 × 就能清除，这组按键也会交还给其他应用。</li>
+<li><strong>菜单栏的笔记列表也能关闭便签了</strong> —— 点击打了勾的笔记（便签正在显示）会关闭这张便签，和点便签上的 × 效果一样。没打勾的笔记照旧是打开或带到最前。</li>
+<li>按 ⌘S 不再发出系统提示音。笔记是自动保存的，⌘S 现在不做任何事。</li>
+</ul>
+<p><a href="https://github.com/xVanTuring/Perch/releases/tag/v2.7.1">在 GitHub 查看完整更新 →</a></p>
+      ]]></description>
+      <enclosure url="https://github.com/xVanTuring/Perch/releases/download/v2.7.1/Perch-2.7.1.zip" length="9246900" type="application/octet-stream" sparkle:edSignature="lHH1e+vWiztXAolMiPK+VTICXtZf35kK8ctXu6IHriOXyD4KPX141NxMHH7Ob1s25BuZ1G/c9r+d8hW8/nyHBw==" />
+    </item>
+    <item>
       <title>v2.7.0</title>
       <pubDate>Mon, 12 Oct 2026 02:42:10 +0000</pubDate>
       <sparkle:version>21</sparkle:version>
