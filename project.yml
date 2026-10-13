@@ -146,8 +146,8 @@ targets:
       properties:
         CFBundleName: Perch
         CFBundleDisplayName: Perch
-        CFBundleShortVersionString: "2.7.0"
-        CFBundleVersion: "21"
+        CFBundleShortVersionString: "2.7.1"
+        CFBundleVersion: "22"
         CFBundlePackageType: APPL
         LSMinimumSystemVersion: "15.0"
         # 应用分类(便签 = 效率工具)。消除打包时 "No App Category is set" 警告,
