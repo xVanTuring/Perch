@@ -311,9 +311,11 @@ final class MCPServer: ObservableObject {
         })
     }
 
+    /// 按主机名精确比较。原先比的是前缀,`http://localhost.evil.example` 这种别人的域名也能过,
+    /// 防 DNS 重绑定的这一关形同虚设(只剩口令一关)。
     private nonisolated static func isOriginAllowed(_ origin: String) -> Bool {
-        let allowedPrefixes = ["http://localhost", "http://127.0.0.1", "https://localhost", "https://127.0.0.1"]
-        return allowedPrefixes.contains { origin.hasPrefix($0) }
+        guard let host = URL(string: origin)?.host?.lowercased() else { return false }
+        return ["localhost", "127.0.0.1", "::1", "[::1]"].contains(host)
     }
 
     /// 比的是 `start()` 时读好的 `activeToken`,不再每个请求现读钥匙串(见 `activeToken`)。
