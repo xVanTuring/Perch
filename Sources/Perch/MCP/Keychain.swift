@@ -7,6 +7,19 @@ enum Keychain {
     private static let service = "tech.xvanturing.Perch.mcp"
 
     static func read(account: String) -> String? {
+        if case .found(let value) = lookup(account: account) { return value }
+        return nil
+    }
+
+    /// 读的结果分三种:有、确实没有、读失败(钥匙串锁着 / 访问被拒…)。调用方要分清后两种 ——
+    /// 把「读失败」当「没有」去生成新值写回,会覆盖掉一个其实还在的值。
+    enum Lookup {
+        case found(String)
+        case missing
+        case failed(OSStatus)
+    }
+
+    static func lookup(account: String) -> Lookup {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -16,8 +29,15 @@ enum Keychain {
         ]
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
-        guard status == errSecSuccess, let data = result as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
+        switch status {
+        case errSecSuccess:
+            guard let data = result as? Data, let value = String(data: data, encoding: .utf8) else { return .missing }
+            return .found(value)
+        case errSecItemNotFound:
+            return .missing
+        default:
+            return .failed(status)
+        }
     }
 
     @discardableResult

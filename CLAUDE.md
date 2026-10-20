@@ -122,6 +122,16 @@ see its own comments. `MCPFacade` must await its own
 after calling into those before reading the note back, or the tool result
 reports stale pre-mutation state.
 
+**Gotcha (staying up for days)**: a client that loses the server doesn't come
+back on its own — Claude Code needs a manual `/mcp` reconnect. So: the token is
+read from the keychain once per `start()` (`activeToken`), never per request,
+and a *failed* read never generates a new one (that would overwrite a token
+that is still there and lock every configured client out); a listener that
+fails is reopened with backoff while the user hasn't stopped it, and after a
+wake / every 5 min the server connects to itself and reopens if nothing
+answers. The fixed `Mcp-Session-Id` is never checked — keep it that way: a
+`404` for an unknown session is the uni-reader long-idle bug (2026-10-20).
+
 ## Note images
 
 Pasted images and `![alt](https://…)` images, rendered by the engine through one
