@@ -64,7 +64,13 @@ final class MCPCatalog {
         do {
             let result = try await tool.handler(MCPArgs(raw: arguments))
             var obj: MCPObject = ["content": [["type": "text", "text": result.text]]]
-            if let structured = result.structured {
+            if var structured = result.structured {
+                // Claude Code 有 structuredContent 时只把它给模型、text 整段丢掉(2026-10-20 实测)。
+                // 短 text(摘要、提示)抄进 `message`,模型才看得到;长 text(get_note 的正文这类)
+                // 结构化里本来就有,不抄,免得 token 翻倍。
+                if !result.text.isEmpty, result.text.count <= Self.messageLimit, structured["message"] == nil {
+                    structured["message"] = result.text
+                }
                 obj["structuredContent"] = structured
             }
             return obj
@@ -72,6 +78,9 @@ final class MCPCatalog {
             return errorResult(error.message)
         }
     }
+
+    /// 多长以内的 text 抄进结构化结果的 `message`(见 `call`)。
+    static let messageLimit = 500
 
     private func errorResult(_ message: String) -> MCPObject {
         ["content": [["type": "text", "text": message]], "isError": true]

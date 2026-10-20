@@ -132,6 +132,13 @@ wake / every 5 min the server connects to itself and reopens if nothing
 answers. The fixed `Mcp-Session-Id` is never checked — keep it that way: a
 `404` for an unknown session is the uni-reader long-idle bug (2026-10-20).
 
+**Gotcha (what the model sees)**: when a result has `structuredContent`,
+Claude Code shows the model *only* that and drops the text content (verified
+2026-10-20). `MCPCatalog.call` therefore copies a short text (≤ 500 chars) into
+`structuredContent.message`; a long one (a note body) is already in the
+structured payload and isn't copied. Put anything the model must read either
+in a short text or in the structured result itself.
+
 ## Note images
 
 Pasted images and `![alt](https://…)` images, rendered by the engine through one
