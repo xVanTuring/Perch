@@ -76,6 +76,8 @@ team change the newly signed app cannot read the old container. Nothing needed
 migrating — with sync on, `Perch.sqlite` already held everything as a full local
 mirror, and sync-off mode opens that same file. The sync code
 (`CloudKitSyncMonitor`, `CloudKitDeduplicator`, `ICloudTab`) is kept, unused.
+Macs that had sync on get a one-time alert on first launch (`ICloudSunsetNotice`,
+flag `SettingsKey.didShowICloudSunsetNotice`).
 
 Turning it back on: flip the flag, add the entitlement keys back (listed in the
 comment in `Perch.entitlements`), and **use a new toggle key** instead of

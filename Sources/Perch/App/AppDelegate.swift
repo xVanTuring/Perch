@@ -120,6 +120,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             LegacyNotickyImport.promptDeleteOldData(legacyImport)
         }
 
+        // 开过 iCloud 同步的 Mac 升级到「只存本地」版本后,第一次启动告知一次。
+        // 同上,放在窗口恢复之后再 modal。
+        ICloudSunsetNotice.showIfNeeded()
+
         // Sparkle 静默检查:第一次访问 `.shared` 触发 controller init,
         // 后续整个进程生命周期里都活着。`checkInBackground` 只有真有
         // 新版本时才弹 UI,"已是最新" 不打扰用户。

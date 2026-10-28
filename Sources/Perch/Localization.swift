@@ -167,6 +167,8 @@ enum LocKey: String {
 
     // 从旧版 Noticky 一次性导入本地数据后的提示
     case legacyImportDoneTitle, legacyImportDoneBody, legacyImportKeep, legacyImportDelete
+    // iCloud 同步下线后的一次性告知(ICloudSunsetNotice)
+    case iCloudSunsetTitle, iCloudSunsetBody
 
     // Manager toolbar / sidebar
     case managerSearch, managerNewGroup, managerNewNote
@@ -436,6 +438,8 @@ enum L {
         .legacyImportDoneBody: "Imported %d note(s) and %d group(s) from your previous Noticky data.\n\nDelete the old Noticky data now? Keeping it won't affect Perch.",
         .legacyImportKeep: "Keep Old Data",
         .legacyImportDelete: "Delete Old Data",
+        .iCloudSunsetTitle: "iCloud sync has been turned off",
+        .iCloudSunsetBody: "Perch now keeps notes only on this Mac. Everything that was synced is already here — nothing was lost.\n\nYour Macs no longer sync with each other. To bring notes to another Mac, use Manage All Notes → Data → Export All Notes (SQLite)… here, then Import All Notes (SQLite)… on the other Mac. Notes it already has are skipped.",
 
         .managerSearch: "Search all notes",
         .managerNewGroup: "New Group",
@@ -728,6 +732,8 @@ enum L {
         .legacyImportDoneBody: "已从旧版 Noticky 导入 %d 条便签、%d 个分组。\n\n是否现在删除旧版 Noticky 的本地数据?保留它不会影响 Perch。",
         .legacyImportKeep: "保留旧数据",
         .legacyImportDelete: "删除旧数据",
+        .iCloudSunsetTitle: "iCloud 同步已下线",
+        .iCloudSunsetBody: "Perch 现在只把便签保存在这台 Mac 上。之前同步过的内容都已经在本机,没有丢失。\n\n多台 Mac 之间不再互相同步。要把便签带到另一台 Mac:在这台用「管理所有便签 → 数据 → 导出全部便签 (SQLite)…」,再到另一台用「导入全部便签 (SQLite)…」,那台已有的便签会自动跳过。",
 
         .managerSearch: "搜索所有便签",
         .managerNewGroup: "新建分组",

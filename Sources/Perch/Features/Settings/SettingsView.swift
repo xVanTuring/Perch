@@ -50,6 +50,9 @@ enum SettingsKey {
     /// 换新 key,别复用它。
     static let iCloudSyncEnabled = "Noticky.iCloudSyncEnabled"   // Bool
 
+    /// 「iCloud 同步已下线」提示弹过没有(ICloudSunsetNotice,每台 Mac 只弹一次)。
+    static let didShowICloudSunsetNotice = "Perch.didShowICloudSunsetNotice"   // Bool
+
     /// 回收站保留天数。超过这个天数的 trashed 笔记会在启动时被
     /// `purgeExpiredTrash` 真删。范围 7-365,未设默认 30(对齐 Notes/Mail)。
     static let trashRetentionDays = "Noticky.trashRetentionDays" // Int
