@@ -279,8 +279,16 @@ final class SyncEngine: ObservableObject {
         let current = state[key] ?? SyncRecordState()
         // base 里没有的字段当成 null:导入的记录里没出现过的字段(比如从没设过提醒)
         // 本地也是 null,不算本机改过。
-        let changed = values.filter { name, value in (current.base[name]?.value ?? .null) != value }
+        var changed = values.filter { name, value in (current.base[name]?.value ?? .null) != value }
         guard !changed.isEmpty else { return }
+        // 合并规则「正文比移进回收站更晚 → 移出回收站」是给不知道它进了回收站的设备用的。
+        // 本机明知道它在回收站还改了它,就把回收站状态和正文一起重新盖章(同一个时间戳,
+        // 正文不比它晚),否则别的 Mac 会把它移出回收站,本机却还留着,两边对不上。
+        if kind == .notes, changed[SyncFieldName.content] != nil,
+           values[SyncFieldName.isTrashed] == .bool(true) {
+            changed[SyncFieldName.isTrashed] = values[SyncFieldName.isTrashed]
+            changed[SyncFieldName.trashedAt] = values[SyncFieldName.trashedAt]
+        }
 
         let hlc: HLCTimestamp
         if current.base.isEmpty && current.own == nil {
