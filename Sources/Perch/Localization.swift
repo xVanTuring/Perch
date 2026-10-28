@@ -182,7 +182,7 @@ enum LocKey: String {
     case syncErrorFolderMissing, syncErrorNewerFormat, syncErrorNoPermission
     case syncRetry, syncOpenPrivacySettings
     case syncDebugOverride
-    case syncFirstTitle, syncFirstOnlyMac, syncFirstReceived, syncFirstConflicts
+    case syncFirstTitle, syncFirstOnlyMac, syncFirstReceived, syncFirstMerged, syncFirstConflicts
     case syncRemoveDevice, syncRemoveDeviceTitle, syncRemoveDeviceMessage, syncRemoveDeviceConfirm
     case syncConflictCompare, syncConflictTitle, syncConflictExplain, syncConflictOther, syncConflictCurrent
     case syncConflictOriginalGone, syncConflictUseOther, syncConflictKeepCurrent, syncConflictKeepAsNote, syncConflictFooter
@@ -486,6 +486,7 @@ enum L {
         .syncOpenPrivacySettings: "Open Privacy & Security",
         .syncDebugOverride: "Debug: syncing into PERCH_SYNC_DIR",
         .syncFirstTitle: "Sync is on",
+        .syncFirstMerged: "Notes on this Mac have been merged with your other Macs.",
         .syncRemoveDevice: "Remove…",
         .syncRemoveDeviceTitle: "Remove “%@”?",
         .syncRemoveDeviceMessage: "Only do this for a Mac you no longer use. This Mac first takes over everything it synced, then deletes its files from the sync folder, so no notes are lost. If that Mac turns on sync again later, it simply rejoins.",
@@ -827,6 +828,7 @@ enum L {
         .syncOpenPrivacySettings: "打开「隐私与安全性」",
         .syncDebugOverride: "调试：正在同步到 PERCH_SYNC_DIR",
         .syncFirstTitle: "同步已开启",
+        .syncFirstMerged: "这台 Mac 上的便签已经和其他 Mac 合并。",
         .syncRemoveDevice: "移除…",
         .syncRemoveDeviceTitle: "移除「%@」？",
         .syncRemoveDeviceMessage: "只对不再使用的 Mac 这样做。这台 Mac 会先接管它同步过的全部内容，再删掉它在同步文件夹里的文件，便签不会丢。那台 Mac 以后如果又打开同步，会重新加入。",

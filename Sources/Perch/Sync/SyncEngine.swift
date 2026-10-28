@@ -770,7 +770,8 @@ final class SyncEngine: ObservableObject {
         if otherMacs == 0 {
             alert.informativeText = L.t(.syncFirstOnlyMac)
         } else {
-            var text = L.t(.syncFirstReceived, received)
+            // 两边原本就有同样的便签(比如以前用 CloudKit 同步过)时,一条都不是「新收到」的。
+            var text = received > 0 ? L.t(.syncFirstReceived, received) : L.t(.syncFirstMerged)
             if conflicts > 0 { text += "\n\n" + L.t(.syncFirstConflicts, conflicts) }
             alert.informativeText = text
         }
