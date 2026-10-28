@@ -90,7 +90,7 @@ comment in `Perch.entitlements`), and **use a new toggle key** instead of
 and would start syncing the moment they update. Meanwhile keep schema changes
 CloudKit-compatible (rules at the top of `SchemaV1.swift`).
 
-## Sync over iCloud Drive (phase 1 done, not released)
+## Sync over iCloud Drive (phases 1–2 done, not released)
 
 Design + test results: [`docs/icloud-drive-sync.md`](docs/icloud-drive-sync.md).
 Settings → Sync (`SyncTab`) turns it on (`SettingsKey.syncEnabled`, a new key — not
@@ -111,8 +111,14 @@ the old CloudKit `iCloudSyncEnabled`). Folder defaults to iCloud Drive/Perch.
   40–60 s, a new file in 3–4 s.
 - Perch.app gets a one-time system prompt for iCloud Drive access; denial shows in the
   Sync tab with Retry / Privacy & Security buttons.
+- Removing a Mac (`removeDevice`) must **adopt** its contributions into this Mac's files
+  before deleting its folder — its files may be the only copy (and its images live in
+  its own `blobs/`); a Mac joining later would otherwise never get them.
+- Editing a note this Mac knows is trashed re-stamps isTrashed with the body's timestamp,
+  else the edit-after-trash rule restores it on the other Macs only.
 - Test hooks (DEBUG only): `PERCH_DATA_DIR` (own store, lock, sync state — runs next to
-  the real instance), `PERCH_SYNC_DIR` (folder, forces sync on), `PERCH_DEMO_DATA=1`.
+  the real instance), `PERCH_SYNC_DIR` (folder, forces sync on), `PERCH_DEMO_DATA=1`,
+  `PERCH_SYNC_QUIET=1` (no first-sync alert), `PERCH_SYNC_REMOVE_DEVICE=<id>`.
   Launch with `-Perch.mcpServerEnabled NO` so a test instance doesn't fight for the
   MCP port. UserDefaults are still shared with the real instance.
 
