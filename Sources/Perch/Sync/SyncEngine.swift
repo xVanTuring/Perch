@@ -80,6 +80,7 @@ final class SyncEngine: ObservableObject {
             state.load()
             let folder = SyncFolder(root: root)
             let prepared = Result { try folder.prepare(device: identity.deviceID) }
+            if case .success = prepared { folder.removeStaleOwnVersions(device: identity.deviceID) }
             DispatchQueue.main.async {
                 guard gen == self.generation else { return }
                 if case .failure(let error) = prepared {
@@ -342,18 +343,29 @@ final class SyncEngine: ObservableObject {
         }
     }
 
+    /// 写成一个新的版本文件,再删掉上一个(见 SyncFolder 的说明:改写已有文件要 40–60 秒
+    /// 才到对方,新文件 3–4 秒)。
     private func writeOwnRecord(_ key: SyncLocalState.Key) {
-        guard let folder, let identity, let own = state?[key]?.own,
+        guard let state, let folder, let identity, let own = state[key]?.own,
               let data = try? SyncRecord.makeEncoder().encode(own) else { return }
-        let url = folder.recordURL(device: identity.deviceID, kind: key.kind, id: key.id)
+        let name = SyncFolder.recordFileName(id: key.id, version: clock.tick())
+        let previous = state[key]?.ownFileName
+        state.update(key) { $0.ownFileName = name }
+        let dir = folder.recordDirectory(device: identity.deviceID, kind: key.kind)
         io.async {
-            do { try folder.write(data, to: url) } catch { NSLog("Perch sync: write failed %@: %@", url.path, "\(error)") }
+            do {
+                try folder.write(data, to: dir.appendingPathComponent(name))
+                if let previous, previous != name { folder.remove(dir.appendingPathComponent(previous)) }
+            } catch {
+                NSLog("Perch sync: write failed %@/%@: %@", dir.path, name, "\(error)")
+            }
         }
     }
 
     private func removeOwnRecordFile(_ key: SyncLocalState.Key) {
-        guard let folder, let identity else { return }
-        let url = folder.recordURL(device: identity.deviceID, kind: key.kind, id: key.id)
+        guard let state, let folder, let identity, let name = state[key]?.ownFileName else { return }
+        state.update(key) { $0.ownFileName = nil }
+        let url = folder.recordDirectory(device: identity.deviceID, kind: key.kind).appendingPathComponent(name)
         io.async { folder.remove(url) }
     }
 
@@ -416,8 +428,8 @@ final class SyncEngine: ObservableObject {
         io.async {
             folder.mergeDuplicateRoots()
             let files = folder.scanRemoteFiles(excluding: me)
-            let present = Set(files.map(\.relativePath))
-            let changed = files.filter { knownStats[$0.relativePath] != $0.stat }
+            let present = Set(files.map(\.recordPath))
+            let changed = files.filter { knownStats[$0.recordPath] != $0.stat }
             let removed = knownStats.keys.filter { !present.contains($0) }
             let datas = folder.readAll(changed.map(\.url))
 
@@ -469,19 +481,19 @@ final class SyncEngine: ObservableObject {
             if let blob = item.blob { blobs[item.file.id] = blob }
             // 图片的数据还没到的,先不记文件状态,下次再读一遍这条记录。
             let blobMissing = item.file.kind == .images && item.record.deleted == nil && item.blob == nil
-            if !blobMissing { statsToRecord[item.file.relativePath] = item.file.stat }
+            if !blobMissing { statsToRecord[item.file.recordPath] = item.file.stat }
             for field in item.record.fields.values { clock.observe(field.hlc) }
             if let deleted = item.record.deleted { clock.observe(deleted) }
         }
         for path in removed {
-            // <设备>/<kind>/<UUID>.json
+            state.meta.remoteStats[path] = nil
+            // <设备>/<kind>/<UUID>:那台设备上这条记录一个文件都没有了。
             let parts = path.split(separator: "/")
             guard parts.count == 3, let kind = SyncFolder.Kind(rawValue: String(parts[1])),
-                  let id = UUID(uuidString: String(parts[2].dropLast(5))) else { continue }
+                  let id = UUID(uuidString: String(parts[2])) else { continue }
             let key = SyncLocalState.Key(kind: kind, id: id)
             state.update(key) { $0.remote[String(parts[0])] = nil }
             affected.insert(key)
-            state.meta.remoteStats[path] = nil
         }
         for (path, stat) in statsToRecord { state.meta.remoteStats[path] = stat }
         state.markMetaDirty()

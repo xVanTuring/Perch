@@ -5,9 +5,13 @@ import Foundation
 /// ```
 /// <根>/format.json
 /// <根>/<设备 ID>/device.json
-/// <根>/<设备 ID>/{groups,notes,images}/<UUID>.json
+/// <根>/<设备 ID>/{groups,notes,images}/<UUID>.<毫秒>-<计数>.json
 /// <根>/<设备 ID>/blobs/<UUID>.<扩展名>
 /// ```
+///
+/// 记录文件每次修改都写成**新文件**(文件名带版本),再删掉上一个:iCloud 云盘把「对方已下载过的
+/// 文件被改写」要 40–60 秒才推给对方,新文件 3–4 秒就出现(方案第 10 节)。读的时候每台设备的
+/// 每条记录只取版本最大的那个文件。
 ///
 /// 根下面没有多台设备共用的文件夹:两台 Mac 同时建同名文件夹时,iCloud 云盘会把其中一个
 /// 改名成「xxx 2」(方案第 10 节),所以每个文件夹都只由它的设备自己建。唯一共用的是根本身,
@@ -27,17 +31,20 @@ struct SyncFolder {
     struct FileStat: Codable, Equatable {
         let size: Int64
         let mtimeNanos: Int64
+        /// 文件名(带版本)。同一条记录换了新版本文件,名字一定不同。
+        var name: String?
     }
 
-    /// 其他设备文件夹里的一个记录文件。
+    /// 其他设备文件夹里一条记录的当前文件(版本最大的那个)。
     struct RemoteFile {
         let device: String
         let kind: Kind
         let id: UUID
         let url: URL
         let stat: FileStat
-        /// 相对根目录的路径,作远端文件缓存的键。
-        let relativePath: String
+        /// `<设备>/<kind>/<UUID>`,不带版本:远端文件缓存的键。换了版本文件键不变、
+        /// stat 变了;这条记录在那台设备上一个文件都没有了,才算移除。
+        let recordPath: String
     }
 
     struct DeviceInfo: Codable, Equatable {
@@ -57,10 +64,53 @@ struct SyncFolder {
         deviceDirectory(device).appendingPathComponent("device.json")
     }
 
-    func recordURL(device: String, kind: Kind, id: UUID) -> URL {
-        deviceDirectory(device)
-            .appendingPathComponent(kind.rawValue, isDirectory: true)
-            .appendingPathComponent(id.uuidString + ".json")
+    func recordDirectory(device: String, kind: Kind) -> URL {
+        deviceDirectory(device).appendingPathComponent(kind.rawValue, isDirectory: true)
+    }
+
+    /// 记录文件名:`<UUID>.<毫秒>-<计数>.json`。版本取本机混合逻辑时钟的一次 tick ——
+    /// 时钟持久保存、只往前走,本机同步状态丢了也不会写出比旧文件小的版本。
+    static func recordFileName(id: UUID, version: HLCTimestamp) -> String {
+        "\(id.uuidString).\(version.millis)-\(version.counter).json"
+    }
+
+    /// 解析记录文件名,返回 (UUID, 版本)。旧格式 `<UUID>.json` 当作版本 0。
+    static func parseRecordFileName(_ name: String) -> (id: UUID, millis: Int64, counter: Int)? {
+        guard name.hasSuffix(".json") else { return nil }
+        let base = name.dropLast(5)
+        let parts = base.split(separator: ".", maxSplits: 1)
+        guard let first = parts.first, let id = UUID(uuidString: String(first)) else { return nil }
+        guard parts.count == 2 else { return (id, 0, 0) }
+        let version = parts[1].split(separator: "-")
+        guard version.count == 2, let millis = Int64(version[0]), let counter = Int(version[1]) else {
+            return nil
+        }
+        return (id, millis, counter)
+    }
+
+    /// 启动时清理本机文件夹:同一条记录留下了不止一个版本文件(写完新的、删旧的之前退出了),
+    /// 只留版本最大的。
+    func removeStaleOwnVersions(device: String) {
+        let fm = FileManager.default
+        for kind in Kind.allCases {
+            let dir = recordDirectory(device: device, kind: kind)
+            var latest: [UUID: (name: String, millis: Int64, counter: Int)] = [:]
+            var stale: [String] = []
+            for name in (try? fm.contentsOfDirectory(atPath: dir.path)) ?? [] {
+                guard let parsed = Self.parseRecordFileName(name) else { continue }
+                if let current = latest[parsed.id] {
+                    if (parsed.millis, parsed.counter) > (current.millis, current.counter) {
+                        stale.append(current.name)
+                        latest[parsed.id] = (name, parsed.millis, parsed.counter)
+                    } else {
+                        stale.append(name)
+                    }
+                } else {
+                    latest[parsed.id] = (name, parsed.millis, parsed.counter)
+                }
+            }
+            for name in stale { try? fm.removeItem(at: dir.appendingPathComponent(name)) }
+        }
     }
 
     /// 图片数据放在写它的设备自己的文件夹里。
@@ -256,24 +306,31 @@ struct SyncFolder {
         Self.deviceFolderNames(in: root)
     }
 
-    /// 列出其他设备的全部记录文件(只看大小和修改时间,不触发下载)。
-    /// 文件名不是 `<UUID>.json` 的(比如 iCloud 云盘改名生成的 `xxx 2.json`)忽略。
+    /// 列出其他设备每条记录的当前文件(只看大小和修改时间,不触发下载)。同一条记录有
+    /// 好几个版本文件时(对方写了新的、旧的还没删掉)取版本最大的。文件名认不出来的
+    /// (比如 iCloud 云盘改名生成的 `xxx 2.json`)忽略。
     func scanRemoteFiles(excluding ownDevice: String) -> [RemoteFile] {
         let fm = FileManager.default
         var result: [RemoteFile] = []
         for device in deviceIDs() where device != ownDevice {
             for kind in Kind.allCases {
-                let dir = deviceDirectory(device).appendingPathComponent(kind.rawValue)
-                let names = (try? fm.contentsOfDirectory(atPath: dir.path)) ?? []
-                for name in names where name.hasSuffix(".json") {
-                    guard let id = UUID(uuidString: String(name.dropLast(5))) else {
-                        if !name.hasPrefix(".") { NSLog("Perch sync: ignoring %@/%@", dir.path, name) }
+                let dir = recordDirectory(device: device, kind: kind)
+                var latest: [UUID: (name: String, millis: Int64, counter: Int)] = [:]
+                for name in (try? fm.contentsOfDirectory(atPath: dir.path)) ?? [] where !name.hasPrefix(".") {
+                    guard let parsed = Self.parseRecordFileName(name) else {
+                        NSLog("Perch sync: ignoring %@/%@", dir.path, name)
                         continue
                     }
-                    let url = dir.appendingPathComponent(name)
-                    guard let stat = Self.stat(url) else { continue }
+                    if let current = latest[parsed.id],
+                       (current.millis, current.counter) >= (parsed.millis, parsed.counter) { continue }
+                    latest[parsed.id] = (name, parsed.millis, parsed.counter)
+                }
+                for (id, file) in latest {
+                    let url = dir.appendingPathComponent(file.name)
+                    guard var stat = Self.stat(url) else { continue }
+                    stat.name = file.name
                     result.append(RemoteFile(device: device, kind: kind, id: id, url: url, stat: stat,
-                                             relativePath: "\(device)/\(kind.rawValue)/\(name)"))
+                                             recordPath: "\(device)/\(kind.rawValue)/\(id.uuidString)"))
                 }
             }
         }

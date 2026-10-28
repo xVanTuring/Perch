@@ -4,6 +4,8 @@ import Foundation
 struct SyncRecordState: Codable, Equatable {
     /// 本机写进自己文件夹的版本。
     var own: SyncRecord?
+    /// 本机文件夹里这条记录当前的文件名(带版本)。下次写新版本后删掉它。
+    var ownFileName: String?
     /// 其他设备的最新版本(设备 ID → 记录)。读过一次就缓存在这里,合并时不用再
     /// 去同步文件夹里读(那边的文件可能又被 iCloud 云盘移回只在云端)。
     var remote: [String: SyncRecord] = [:]
