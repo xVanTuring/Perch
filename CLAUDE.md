@@ -16,9 +16,11 @@ xcodebuild -project Perch.xcodeproj -scheme Perch -configuration Debug build 2>&
     | grep -E "(error:|BUILD )" | tail -10
 
 # Run binary directly (so we can capture stderr, see "GUI debug" below)
-APP=$(find ~/Library/Developer/Xcode/DerivedData \
-    -path "*Perch*/Build/Products/Debug/Perch.app/Contents/MacOS/Perch" \
-    2>/dev/null | head -1)
+# Ask xcodebuild where it built: DerivedData can hold more than one Perch-*
+# folder, and `find … | head -1` silently picked a stale build (2026-10-28).
+APP="$(xcodebuild -project Perch.xcodeproj -scheme Perch -configuration Debug \
+    -showBuildSettings 2>/dev/null \
+    | awk '$1 == "BUILT_PRODUCTS_DIR" { print $3 }')/Perch.app/Contents/MacOS/Perch"
 pkill -f "Perch.app/Contents/MacOS/Perch" 2>/dev/null
 "$APP" > /tmp/perch.log 2>&1 &
 disown
