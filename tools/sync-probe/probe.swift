@@ -160,6 +160,9 @@ case "write":
         writeOne(seq: Int(Date().timeIntervalSince1970) % 1_000_000)
     }
 
+case "watch":
+    watch()
+
 case "status":
     let files = allFiles()
     log("\(dir.path) 下共 \(files.count) 个文件")
@@ -214,6 +217,28 @@ case "scan":
     log(String(format: "全量检查 %d 个文件(其中只在云端 %d 个),用时 %.0f ms",
                count, dataless, Date().timeIntervalSince(start) * 1000))
 
+case "readall":
+    // 把所有只在云端的文件并发读一遍(读会触发下载),看并发下载要多久。
+    let parallel = rest.first.flatMap(Int.init) ?? 8
+    let targets = allFiles().filter { url in
+        var st = stat()
+        return lstat(url.path, &st) == 0 && st.st_flags & 0x4000_0000 != 0
+    }
+    log("只在云端的文件 \(targets.count) 个,并发 \(parallel) 个读取")
+    let start = Date()
+    let queue = OperationQueue()
+    queue.maxConcurrentOperationCount = parallel
+    let lock = NSLock()
+    var ok = 0, failed = 0
+    for url in targets {
+        queue.addOperation {
+            let success = (try? Data(contentsOf: url)) != nil
+            lock.lock(); if success { ok += 1 } else { failed += 1 }; lock.unlock()
+        }
+    }
+    queue.waitUntilAllOperationsAreFinished()
+    log(String(format: "读完:成功 %d,失败 %d,用时 %.1f 秒", ok, failed, Date().timeIntervalSince(start)))
+
 case "clean":
     do {
         try FileManager.default.removeItem(at: dir)
@@ -235,6 +260,7 @@ default:
       evict <文件>           移除本地副本,让它变成只在云端
       bulk [数量]            一次写很多小文件(默认 500)
       scan                  全量检查一遍所有文件并计时
+      readall [并发数]       并发读取所有只在云端的文件并计时(默认 8)
       clean                 删除整个测试文件夹
     """)
 }
