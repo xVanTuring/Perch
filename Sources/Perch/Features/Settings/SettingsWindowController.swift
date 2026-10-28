@@ -62,7 +62,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         addTab(to: tabVC, CaptureTab(),   key: .tabCapture,   icon: "doc.on.clipboard")
         addTab(to: tabVC, ShortcutsTab(), key: .tabShortcuts, icon: "keyboard")
         addTab(to: tabVC, NotesTab(),     key: .tabNotes,     icon: "note.text")
-        addTab(to: tabVC, ICloudTab(),    key: .tabICloud,    icon: "icloud")
+        if CloudKitConfig.syncAvailable {
+            addTab(to: tabVC, ICloudTab(), key: .tabICloud, icon: "icloud")
+        }
         addTab(to: tabVC, UpdatesTab(),   key: .tabUpdates,   icon: "arrow.down.circle")
         addTab(to: tabVC, MCPServerTab(), key: .tabMCP,       icon: "network")
 

@@ -46,6 +46,8 @@ enum SettingsKey {
     /// iCloud 同步开关。改这个值后必须重启 Perch —— PersistenceController
     /// 在 init 时一次性读 + 决定走 NSPersistentContainer 还是
     /// NSPersistentCloudKitContainer,运行时无法热切换。
+    /// 同步已下线(`CloudKitConfig.syncAvailable`),这个 key 不再生效;重新做同步时
+    /// 换新 key,别复用它。
     static let iCloudSyncEnabled = "Noticky.iCloudSyncEnabled"   // Bool
 
     /// 回收站保留天数。超过这个天数的 trashed 笔记会在启动时被
@@ -426,6 +428,7 @@ struct GeneralTab: View {
                 Text(L.t(.generalFillDemoDesc))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                SchemaMigrationTestRow()
                 #endif
                 Button(role: .destructive, action: clearAllContent) {
                     Text(L.t(.generalClearAll))
@@ -445,11 +448,11 @@ struct GeneralTab: View {
 
     /// 窗口按选中 tab 的 preferredContentSize 定高(见 SettingsWindowController),
     /// 且 `.scrollDisabled(true)` —— 高度不够内容会被截断,不会出滚动条。
-    /// DEBUG 构建多出「填充演示数据」按钮 + 一段较长说明,560 装不下;Release
+    /// DEBUG 构建多出「填充演示数据」和「迁移自检」两个按钮 + 各一段说明;Release
     /// 没这段。菜单栏相关的两个 Picker 已挪到 MenuBarTab,各减 ~80。
     private static var tabHeight: CGFloat {
         #if DEBUG
-        600
+        720
         #else
         480
         #endif
@@ -514,6 +517,58 @@ struct GeneralTab: View {
         launchAtLoginEnabled = service.status == .enabled
     }
 }
+
+#if DEBUG
+/// 仅 DEBUG:Lightweight migration 端到端自检。每次 bump SchemaVersion.current 之前
+/// 跑一次确认升级链路能跑通(SchemaMigrationTester 会拿合成的旧版 store 走一遍
+/// 真实迁移)。原来在 iCloud 页、且只在同步开着时显示;同步下线后挪到通用页。
+private struct SchemaMigrationTestRow: View {
+    @State private var message: String?
+    @State private var failed = false
+    @State private var running = false
+
+    var body: some View {
+        Button(L.t(.schemaMigrationTest)) {
+            run()
+        }
+        .disabled(running)
+        if running {
+            Label(L.t(.schemaMigrationTestRunning), systemImage: "arrow.triangle.2.circlepath")
+                .foregroundStyle(.secondary)
+                .font(.callout)
+        } else if let message {
+            Label(message, systemImage: failed ? "exclamationmark.triangle" : "checkmark.circle")
+                .foregroundStyle(failed ? Color.red : Color.green)
+                .font(.callout)
+        }
+        Text(L.t(.schemaMigrationTestHint))
+            .font(.caption)
+            .foregroundStyle(.secondary)
+    }
+
+    /// Core Data 操作放到后台 queue,防止短暂阻塞 UI(实际开销 < 1s,但保险起见
+    /// 还是不在 main 上跑)。
+    private func run() {
+        running = true
+        message = nil
+        failed = false
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result = SchemaMigrationTester.run()
+            DispatchQueue.main.async {
+                running = false
+                switch result {
+                case .passed(let msg):
+                    message = L.t(.schemaMigrationTestPass, msg)
+                    failed = false
+                case .failed(let msg):
+                    message = L.t(.schemaMigrationTestFail, msg)
+                    failed = true
+                }
+            }
+        }
+    }
+}
+#endif
 
 // MARK: - Capture -------------------------------------------------------------
 
@@ -931,9 +986,6 @@ struct ICloudTab: View {
     @AppStorage(SettingsKey.cloudKitDeployedSchemaVersion) private var deployedSchemaVersion: String = ""
     @State private var schemaInitMessage: String?
     @State private var schemaInitFailed: Bool = false
-    @State private var migrationTestMessage: String?
-    @State private var migrationTestFailed: Bool = false
-    @State private var migrationTestRunning: Bool = false
 
     /// 进程启动时 PersistenceController 决定的 mode。这个值不会随 toggle 改变,
     /// 与 enabledPref 不一致时说明用户改了开关但还没重启。
@@ -1019,7 +1071,6 @@ struct ICloudTab: View {
 
                 #if DEBUG
                 schemaDebugSection
-                migrationTesterSection
                 #endif
             } else if !enabledPref {
                 Section {
@@ -1033,10 +1084,11 @@ struct ICloudTab: View {
     }
 
     /// 内容多寡浮动:开关+只读 hint 时矮一些,启用+状态区时高一些。
-    /// DEBUG 构建时多两段(schema 跟踪 + migration tester)。
+    /// DEBUG 构建时多一段 schema 跟踪(迁移自检已挪到 GeneralTab)。
+    /// 同步下线后这个 tab 不再显示,680 是按去掉迁移自检那段估的,恢复时实测一下。
     private var dynamicHeight: CGFloat {
         #if DEBUG
-        if actuallyRunningCloudKit { return 800 }
+        if actuallyRunningCloudKit { return 680 }
         #else
         if actuallyRunningCloudKit { return 460 }
         #endif
@@ -1117,31 +1169,6 @@ struct ICloudTab: View {
         }
     }
 
-    /// Lightweight migration 端到端自检。每次 bumping SchemaVersion.current 之前
-    /// 跑一次确认升级链路能跑通(SchemaMigrationTester 会拿合成的旧版 store 走
-    /// 一遍真实迁移)。
-    @ViewBuilder
-    private var migrationTesterSection: some View {
-        Section {
-            Button(L.t(.iCloudMigrationTest)) {
-                runMigrationTest()
-            }
-            .disabled(migrationTestRunning)
-            if migrationTestRunning {
-                Label(L.t(.iCloudMigrationTestRunning), systemImage: "arrow.triangle.2.circlepath")
-                    .foregroundStyle(.secondary)
-                    .font(.callout)
-            } else if let msg = migrationTestMessage {
-                Label(msg, systemImage: migrationTestFailed ? "exclamationmark.triangle" : "checkmark.circle")
-                    .foregroundStyle(migrationTestFailed ? Color.red : Color.green)
-                    .font(.callout)
-            }
-        } footer: {
-            Text(L.t(.iCloudMigrationTestHint))
-                .font(.callout)
-                .foregroundStyle(.secondary)
-        }
-    }
     #endif
 
     #if DEBUG
@@ -1181,28 +1208,6 @@ struct ICloudTab: View {
                 DispatchQueue.main.async {
                     schemaInitMessage = L.t(.iCloudInitSchemaFailed, desc)
                     schemaInitFailed = true
-                }
-            }
-        }
-    }
-
-    /// 同步执行 SchemaMigrationTester.run() —— Core Data 操作放到后台 queue,
-    /// 防止短暂阻塞 UI(实际开销 < 1s,但保险起见还是不在 main 上跑)。
-    private func runMigrationTest() {
-        migrationTestRunning = true
-        migrationTestMessage = nil
-        migrationTestFailed = false
-        DispatchQueue.global(qos: .userInitiated).async {
-            let result = SchemaMigrationTester.run()
-            DispatchQueue.main.async {
-                migrationTestRunning = false
-                switch result {
-                case .passed(let msg):
-                    migrationTestMessage = L.t(.iCloudMigrationTestPass, msg)
-                    migrationTestFailed = false
-                case .failed(let msg):
-                    migrationTestMessage = L.t(.iCloudMigrationTestFail, msg)
-                    migrationTestFailed = true
                 }
             }
         }

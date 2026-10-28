@@ -93,8 +93,10 @@ the key can't sign).
 
 ### 4. Developer ID provisioning profile
 
-iCloud + Push Notifications entitlements force `xcodebuild` to demand
-a profile even for direct Developer ID distribution. The profile must
+Originally required because of the iCloud + Push Notifications
+entitlements. iCloud sync is currently off and those entitlements are
+gone, but `release.sh` still checks for the profile and
+`scripts/ExportOptions.plist` still names it, so keep it installed. The profile must
 be named exactly **"Perch Profile"** — `scripts/ExportOptions.plist`
 looks it up by name.
 

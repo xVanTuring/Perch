@@ -2,7 +2,7 @@
 
 [English](./README.md) · 简体中文
 
-> macOS 原生便签应用 — 菜单栏常驻、全局快捷键速记、多窗浮窗、Markdown、iCloud 同步。
+> macOS 原生便签应用 — 菜单栏常驻、全局快捷键速记、多窗浮窗、Markdown。
 
 Perch 是一款 macOS 15+ 原生便签 / 速记工具。无 Dock 图标，常驻菜单栏，
 不打扰你，需要时随手一记。
@@ -84,10 +84,9 @@ Perch 是一款 macOS 15+ 原生便签 / 速记工具。无 Dock 图标，常驻
 - File menu 提供整库 backup / restore，单文件 JSON 格式。
 - Restore 按 UUID 去重，**不覆盖**当前数据。
 
-### iCloud 同步（可选）
-- Settings → iCloud Sync 开关，默认关闭；首次开启需重启。
-- 启用后跨 Mac 实时同步。
-- 已验证中国区 iCloud（`gateway.icloud.com.cn`）。
+### 数据存储
+- 便签只保存在本机（`~/Library/Application Support/Perch/`）。
+- iCloud 同步已下线。之前开过同步的，同步过的数据本来就在本机的库里，升级后都还在；只是多台 Mac 之间不再互相同步。要把便签带到另一台 Mac，在一台备份、到另一台恢复（见上文「导入 / 导出 / 备份」，恢复按 UUID 去重）。
 
 ### 多语言
 - 内置中文 / 英文，跟随系统或在 Settings → General 强制指定。

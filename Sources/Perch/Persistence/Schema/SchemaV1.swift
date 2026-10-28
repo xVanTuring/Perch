@@ -39,6 +39,7 @@ import CoreData
 /// - to-many 关系必须 optional + nullify delete rule
 /// - 改完 schema 要在 Settings → iCloud Sync 里手动跑 initializeCloudKitSchema
 ///   把新 record types/字段推到 CloudKit Production 环境
+///   (iCloud 同步下线期间不用跑,但上面几条约束照守,免得以后重开同步时推不上去)
 /// - id/createdAt/updatedAt 在 schema 层 `isOptional=true`,代码路径(Note.create)
 ///   总会立即赋值,Swift 侧 @NSManaged 仍可保持非可选
 enum SchemaV1 {

@@ -64,14 +64,34 @@ Sources/Perch/
   edit only V2, add `case v2` to `SchemaVersion`, set `current = .v2`.
   **Never edit a published version** — its hash is baked into user sqlites.
 
+## iCloud sync is off (since 2026-10-28)
+
+`CloudKitConfig.syncAvailable = false` (`Persistence/PersistenceController.swift`):
+the store always opens with a plain `NSPersistentContainer`, the Settings iCloud
+tab is hidden, and both entitlements files have no iCloud / CloudKit / push keys.
+Why: a CloudKit container belongs to the developer team that created it; after a
+team change the newly signed app cannot read the old container. Nothing needed
+migrating — with sync on, `Perch.sqlite` already held everything as a full local
+mirror, and sync-off mode opens that same file. The sync code
+(`CloudKitSyncMonitor`, `CloudKitDeduplicator`, `ICloudTab`) is kept, unused.
+
+Turning it back on: flip the flag, add the entitlement keys back (listed in the
+comment in `Perch.entitlements`), and **use a new toggle key** instead of
+`SettingsKey.iCloudSyncEnabled` — Macs that used sync still have that key `true`
+and would start syncing the moment they update. Meanwhile keep schema changes
+CloudKit-compatible (rules at the top of `SchemaV1.swift`).
+
 ## Schema → CloudKit deployment workflow
+
+**Inactive while iCloud sync is off** (see above) — a schema bump only needs
+step 2. The rest applies again once sync is back.
 
 When bumping `SchemaVersion.current` (e.g., V1 → V2):
 
 1. **Local migration**: lightweight migration handles user sqlites automatically
    on first launch with the new build. No user action.
 2. **Verify the migration code path** before tagging release:
-   Settings → iCloud Sync → "Run migration self-test" (DEBUG build).
+   Settings → General → "Run migration self-test" (DEBUG build).
    Builds a synthetic prior version, writes sample data, migrates forward,
    asserts data preserved. Pass = lightweight migration handles your changes.
    Fail = either your changes need a custom mapping model, or `SchemaMigrationTester`
@@ -189,7 +209,8 @@ Pasted images and `![alt](https://…)` images, rendered by the engine through o
   **`project.yml` therefore pins a fork**, `xVanTuring/swift-markdown-engine`
   branch `xvan` (shared with UniReader; tags `<upstream version>-xvan.N`) — see the
   comment there before upgrading the engine.
-- **CloudKit**: SchemaV5 adds a record type. Before shipping a release, run Settings →
+- **CloudKit** (only while sync is on — currently off): SchemaV5 adds a record type.
+  Before shipping a release, run Settings →
   iCloud Sync → "Initialize Cloud schema (Development)" from a Debug build, then deploy
   Development → Production in the CloudKit Console. Otherwise the release build's
   `NoteImage` uploads are silently dropped.
@@ -288,10 +309,10 @@ login keychain (`https://sparkle-project.org`).  Never regenerate the key
 after the first Sparkle-enabled build ships — existing installs will
 reject anything signed with a new key.
 
-**CloudKit production deployment is independent** — see "Schema → CloudKit
-deployment workflow" above. The Release build's entitlement uses
-`aps-environment=production`, so end users on this build hit your CloudKit
-**Production** environment. Make sure schema is deployed to Production in
+**CloudKit production deployment is independent** (irrelevant while iCloud
+sync is off) — see "Schema → CloudKit deployment workflow" above. With sync on,
+the Release build's entitlement uses `aps-environment=production`, so end users
+on this build hit your CloudKit **Production** environment. Make sure schema is deployed to Production in
 CloudKit Console *before* shipping a release that adds new fields, or sync
 will silently drop them.
 

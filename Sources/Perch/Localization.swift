@@ -145,13 +145,13 @@ enum LocKey: String {
     // Debug-only schema 推送
     case iCloudInitSchema, iCloudInitSchemaHint
     case iCloudInitSchemaSuccess, iCloudInitSchemaFailed
-    // Debug-only schema deployment 跟踪 + migration tester
+    // Debug-only schema deployment 跟踪(iCloud 页)+ migration tester(通用页)
     case iCloudSchemaSection
     case iCloudSchemaCurrent, iCloudSchemaDeployed, iCloudSchemaDeployedNever
     case iCloudSchemaNeedsRedeploy
-    case iCloudMigrationTest, iCloudMigrationTestHint
-    case iCloudMigrationTestRunning
-    case iCloudMigrationTestPass, iCloudMigrationTestFail
+    case schemaMigrationTest, schemaMigrationTestHint
+    case schemaMigrationTestRunning
+    case schemaMigrationTestPass, schemaMigrationTestFail
 
     // Quick Capture
     case quickPlaceholder, quickSave, quickNewLine, quickCancel
@@ -411,11 +411,11 @@ enum L {
         .iCloudSchemaDeployed: "Last pushed to CloudKit Dev",
         .iCloudSchemaDeployedNever: "(never on this machine)",
         .iCloudSchemaNeedsRedeploy: "Local schema differs from last push — re-run \"Initialize Cloud schema\" before release, then deploy Dev → Production in CloudKit Console.",
-        .iCloudMigrationTest: "Run migration self-test",
-        .iCloudMigrationTestHint: "Builds a synthetic previous-version store and migrates it forward with the current model. Run before bumping SchemaVersion.current to verify lightweight migration still works.",
-        .iCloudMigrationTestRunning: "Running migration test…",
-        .iCloudMigrationTestPass: "✓ %@",
-        .iCloudMigrationTestFail: "✗ %@",
+        .schemaMigrationTest: "Run migration self-test",
+        .schemaMigrationTestHint: "Builds a synthetic previous-version store and migrates it forward with the current model. Run before bumping SchemaVersion.current to verify lightweight migration still works.",
+        .schemaMigrationTestRunning: "Running migration test…",
+        .schemaMigrationTestPass: "✓ %@",
+        .schemaMigrationTestFail: "✗ %@",
 
         .quickPlaceholder: "Quick note…",
         .quickSave: "Save", .quickNewLine: "New line", .quickCancel: "Cancel",
@@ -703,11 +703,11 @@ enum L {
         .iCloudSchemaDeployed: "上次推到 CloudKit Dev",
         .iCloudSchemaDeployedNever: "(本机从未推过)",
         .iCloudSchemaNeedsRedeploy: "本地 schema 与上次推送不一致 —— 发布前重跑「初始化云端 Schema」,再去 CloudKit Console 把 Dev → Production 部署一遍。",
-        .iCloudMigrationTest: "跑一次迁移自检",
-        .iCloudMigrationTestHint: "用合成的旧版本 store 走一遍 lightweight migration 升到当前 model。每次改 SchemaVersion.current 之前跑一次,确认升级链路没坏。",
-        .iCloudMigrationTestRunning: "迁移测试中…",
-        .iCloudMigrationTestPass: "✓ %@",
-        .iCloudMigrationTestFail: "✗ %@",
+        .schemaMigrationTest: "跑一次迁移自检",
+        .schemaMigrationTestHint: "用合成的旧版本 store 走一遍 lightweight migration 升到当前 model。每次改 SchemaVersion.current 之前跑一次,确认升级链路没坏。",
+        .schemaMigrationTestRunning: "迁移测试中…",
+        .schemaMigrationTestPass: "✓ %@",
+        .schemaMigrationTestFail: "✗ %@",
 
         .quickPlaceholder: "快速便签…",
         .quickSave: "保存", .quickNewLine: "换行", .quickCancel: "取消",

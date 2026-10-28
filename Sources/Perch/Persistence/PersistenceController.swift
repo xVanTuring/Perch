@@ -7,6 +7,16 @@ import CoreData
 /// CKErrorPartialFailure(invalid container)。
 enum CloudKitConfig {
     static let containerIdentifier = "iCloud.tech.xvanturing.Perch"
+
+    /// iCloud 同步整体下线:CloudKit 容器归开发者账号(team)所有,换账号后新签名的
+    /// App 读不到旧容器,所以先改成只存本地。同步代码(CloudKitSyncMonitor、
+    /// CloudKitDeduplicator、ICloudTab)保留但不再被用到。
+    ///
+    /// 改回 true 之前:
+    /// - 两个 entitlements 要加回 iCloud / CloudKit / aps-environment(见文件内注释);
+    /// - 换一个新的开关 key 替代 `SettingsKey.iCloudSyncEnabled` —— 用过同步的 Mac
+    ///   上旧 key 还是 true,沿用的话用户一升级就会自动开始同步。
+    static let syncAvailable = false
 }
 
 final class PersistenceController {
@@ -28,7 +38,11 @@ final class PersistenceController {
         // iCloud 同步开关来自 UserDefaults。**进程启动时一次性读取**,运行中改设置
         // 不会立即生效 —— Core Data store coordinator 没有「热切换 CloudKit」API,
         // 必须重启 App。Settings UI 在用户改这个开关后弹提示请用户重启。
-        let wantsSync = !inMemory && UserDefaults.standard.bool(forKey: SettingsKey.iCloudSyncEnabled)
+        // 同步下线后(CloudKitConfig.syncAvailable = false)一律走本地。本地模式打开的
+        // 就是同一个 Perch.sqlite —— 以前同步下来的数据本来就全在里面,不需要迁移。
+        let wantsSync = CloudKitConfig.syncAvailable
+            && !inMemory
+            && UserDefaults.standard.bool(forKey: SettingsKey.iCloudSyncEnabled)
         cloudKitEnabled = wantsSync
 
         if wantsSync {

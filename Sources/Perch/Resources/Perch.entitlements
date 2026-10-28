@@ -23,33 +23,14 @@
     <false/>
 
     <!--
-      iCloud / CloudKit。
-      - icloud-services = CloudKit:启用 CloudKit 同步(NSPersistentCloudKitContainer 用)。
-      - icloud-container-identifiers:Container ID 列表,必须跟代码里
-        CloudKitConfig.containerIdentifier 完全一致 + 在 Apple Developer
-        portal 已注册。改名要三方同步:这里 + portal + Swift。
-      - ubiquity-kvstore-identifier:NSUbiquitousKeyValueStore 用,虽然当前
-        没用到,留着免得后续要存「上次同步的 deviceID」之类的小状态再来加签证。
-        值是 "<TeamID>.<bundle-id>";Xcode 会在签名阶段把 $(TeamIdentifierPrefix)
-        替换成实际 team ID(企业账号也走同一路径)。
-
-      `aps-environment` = development:让 CloudKit 通过 silent push 实时同步(否则
-        靠 poll 5-30 秒)。需要 App ID 已勾上 Push Notifications capability,否则
-        Xcode automatic signing 会把它静默剥掉。公证发布前改 development → production。
+      iCloud / CloudKit 已下线(CloudKitConfig.syncAvailable = false),相关 key 都删了:
+      CloudKit 容器归开发者账号所有,留着它们 App 就绑死在这个 team 上。
+      重新开同步时加回(Release 那份 aps-environment 写 production):
+        com.apple.developer.icloud-services           = [CloudKit]
+        com.apple.developer.icloud-container-identifiers = [<CloudKitConfig.containerIdentifier>]
+        com.apple.developer.aps-environment           = development
+          (macOS 用这个 key;iOS 的 `aps-environment` 写在这里会被 codesign 静默丢掉)
+      ubiquity-kvstore-identifier 从没用到过,不用加回。
     -->
-    <key>com.apple.developer.icloud-services</key>
-    <array>
-        <string>CloudKit</string>
-    </array>
-    <key>com.apple.developer.icloud-container-identifiers</key>
-    <array>
-        <string>iCloud.tech.xvanturing.Perch</string>
-    </array>
-    <key>com.apple.developer.ubiquity-kvstore-identifier</key>
-    <string>$(TeamIdentifierPrefix)tech.xvanturing.Perch</string>
-    <!-- macOS 用 com.apple.developer.aps-environment(iOS 是 `aps-environment`,
-         不要写错否则 codesign 会静默丢 key) -->
-    <key>com.apple.developer.aps-environment</key>
-    <string>development</string>
 </dict>
 </plist>

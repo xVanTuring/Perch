@@ -11,8 +11,9 @@ recurring gotchas see [CLAUDE.md](./CLAUDE.md).
 ## Architecture
 
 Perch uses an AppKit shell with SwiftUI content (bridged via
-`NSHostingController`), backed by Core Data, with optional
-`NSPersistentCloudKitContainer` for cross-device sync. No Dock icon, lives in
+`NSHostingController`), backed by Core Data, stored locally only (the
+`NSPersistentCloudKitContainer` sync path is switched off — see
+[CLAUDE.md → iCloud sync is off](./CLAUDE.md#icloud-sync-is-off-since-2026-10-28)). No Dock icon, lives in
 the menu bar (`LSUIElement`).
 
 - Lightweight Core Data migration is always on
@@ -88,11 +89,12 @@ have flaky output in Console.app / `log show`.
 
 ## DEBUG-only helpers
 
-DEBUG builds expose two CloudKit/migration helpers in Settings → iCloud Sync:
+DEBUG builds expose two schema helpers:
 
-- **`Run migration self-test`** — validates that lightweight migration handles
-  your model changes before tagging a release.
-- **`Initialize Cloud schema (Development)`** — pushes the schema to CloudKit
+- **`Run migration self-test`** (Settings → General → Data) — validates that
+  lightweight migration handles your model changes before tagging a release.
+- **`Initialize Cloud schema (Development)`** (Settings → iCloud Sync, only
+  while sync is on — the tab is currently hidden) — pushes the schema to CloudKit
   Development. Promoting Development → Production still has to happen manually
   in [CloudKit Console](https://icloud.developer.apple.com) — see
   [CLAUDE.md → Schema → CloudKit deployment workflow](./CLAUDE.md#schema--cloudkit-deployment-workflow).
@@ -138,9 +140,10 @@ Full step-by-step, one-time setup, and troubleshooting live in
    pick the Developer ID Application cert → name it `Perch Profile` →
    Generate → Download → double-click to install.
 
-   > Required because the entitlements include iCloud + Push Notifications,
-   > which forces Xcode to demand a profile even for Developer ID direct
-   > distribution.
+   > Originally required because the entitlements included iCloud + Push
+   > Notifications. iCloud sync is currently off and those entitlements are
+   > gone, but `release.sh` still checks for the profile and
+   > `ExportOptions.plist` still names it — keep it installed.
 
 3. **notarytool credentials** stored in your keychain. Generate an app-specific
    password at https://appleid.apple.com → Sign-In and Security →
@@ -182,6 +185,10 @@ editing it, re-run `xcodegen` to regenerate the Xcode project before invoking
 
 ### CloudKit schema deployment (separate flow)
 
+> **Inactive while iCloud sync is off** (`CloudKitConfig.syncAvailable = false`,
+> no CloudKit entitlements): a schema bump only needs step 1. The rest applies
+> again once sync comes back.
+
 ⚠️ Release builds use `aps-environment=production`, so end users hit your
 **Production** CloudKit environment. If a release bumps the schema (i.e.
 `SchemaVersion.current` changes), you **must** push the new schema to
@@ -190,7 +197,7 @@ Production *first*, otherwise sync will silently drop the new fields.
 Full procedure: [CLAUDE.md → Schema → CloudKit deployment workflow](./CLAUDE.md#schema--cloudkit-deployment-workflow).
 TL;DR:
 
-1. DEBUG build → Settings → iCloud Sync → `Run migration self-test` to verify.
+1. DEBUG build → Settings → General → `Run migration self-test` to verify.
 2. DEBUG build → Settings → iCloud Sync → `Initialize Cloud schema (Development)`.
 3. Open [CloudKit Console](https://icloud.developer.apple.com), promote the
    schema from Development → Production manually.

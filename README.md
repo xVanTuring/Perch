@@ -2,7 +2,7 @@
 
 English · [简体中文](./README.zh-CN.md)
 
-> Native macOS sticky notes — menubar-resident, global hotkey capture, multi-window floats, Markdown, iCloud sync.
+> Native macOS sticky notes — menubar-resident, global hotkey capture, multi-window floats, Markdown.
 
 Perch is a native sticky-notes / quick-capture app for macOS 15+. No Dock
 icon — it lives in the menu bar and stays out of the way until you need it.
@@ -92,11 +92,12 @@ icon — it lives in the menu bar and stays out of the way until you need it.
 - Restore is **non-destructive** — it dedupes by UUID and skips notes already
   present, so it never overwrites your current data.
 
-### iCloud sync (optional)
-- Off by default. Toggle in Settings → iCloud Sync; first-time enable requires a
-  restart.
-- Once enabled, runs live cross-Mac sync.
-- Verified working with China iCloud (`gateway.icloud.com.cn`).
+### Storage
+- Notes are stored only on this Mac (`~/Library/Application Support/Perch/`).
+- iCloud sync has been removed. If you used it, everything it synced is already
+  in the local store and stays there after updating; your Macs just stop syncing
+  with each other. To move notes to another Mac, back up on one and restore on
+  the other (see Import / Export / Backup above — restore dedupes by UUID).
 
 ### Localization
 - Bundled English and Simplified Chinese; follows the system locale by default,

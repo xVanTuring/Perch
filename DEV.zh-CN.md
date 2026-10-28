@@ -10,7 +10,7 @@
 ## 架构
 
 AppKit 外壳 + SwiftUI 内容（`NSHostingController` 桥接），Core Data 持久化，
-可选 `NSPersistentCloudKitContainer` 跨设备同步。无 Dock 图标，常驻菜单栏
+只存本地（`NSPersistentCloudKitContainer` 同步已关闭，见 [CLAUDE.md → iCloud sync is off](./CLAUDE.md#icloud-sync-is-off-since-2026-10-28)）。无 Dock 图标，常驻菜单栏
 （`LSUIElement`）。
 
 - Core Data 启用 lightweight migration（`shouldInferMappingModelAutomatically`）。
@@ -81,10 +81,10 @@ osascript -e 'tell application "Perch" to quit'
 
 ## DEBUG 专属工具
 
-DEBUG build 在 Settings → iCloud Sync 暴露两个 CloudKit / migration 工具：
+DEBUG build 有两个 schema 工具：
 
-- **`Run migration self-test`** — 发版前验证 lightweight migration 能吃下你的模型改动。
-- **`Initialize Cloud schema (Development)`** — 自动 push schema 到 CloudKit
+- **`Run migration self-test`**（Settings → 通用 → 数据）— 发版前验证 lightweight migration 能吃下你的模型改动。
+- **`Initialize Cloud schema (Development)`**（Settings → iCloud Sync，同步开着时才有，目前这个页隐藏）— 自动 push schema 到 CloudKit
   Development。生产环境 promote 仍需在 [CloudKit Console](https://icloud.developer.apple.com)
   手动部署 — 见 [CLAUDE.md → Schema → CloudKit deployment workflow](./CLAUDE.md#schema--cloudkit-deployment-workflow)。
 
@@ -127,8 +127,9 @@ dist/v1.0.0/
    选 Developer ID Application 证书 → 命名 `Perch Profile` →
    Generate → Download → 双击安装。
 
-   > 因为 entitlements 里有 iCloud + Push Notifications，Xcode 强制要 profile，
-   > 哪怕是 Developer ID 直接分发也跑不掉。
+   > 当初是因为 entitlements 里有 iCloud + Push Notifications 才必须要 profile。
+   > 现在 iCloud 同步已关闭、这些 entitlements 已删，但 `release.sh` 仍检查 profile，
+   > `ExportOptions.plist` 仍按名字引用它 —— 继续保持安装。
 
 3. **notarytool 凭据** 存进 keychain。先到 https://appleid.apple.com →
    Sign-In and Security → App-Specific Passwords 生成专用密码：
@@ -169,6 +170,9 @@ git push --tags
 
 ### CloudKit schema 发布（独立流程）
 
+> **iCloud 同步关闭期间不适用**（`CloudKitConfig.syncAvailable = false`，没有 CloudKit
+> entitlements）：改 schema 只需要第 1 步。同步恢复后整段重新适用。
+
 ⚠️ Release build 的 entitlement 是 `aps-environment=production`，老用户安装新版后
 直接命中 CloudKit **Production** 环境。如果新版本动了 schema（`SchemaVersion.current`
 升号），**必须先**把 schema 部署到 Production，否则同步会静默丢字段。
@@ -176,7 +180,7 @@ git push --tags
 完整流程见 [CLAUDE.md → Schema → CloudKit deployment workflow](./CLAUDE.md#schema--cloudkit-deployment-workflow)。
 关键步骤：
 
-1. DEBUG build → Settings → iCloud Sync → `Run migration self-test` 验证。
+1. DEBUG build → Settings → 通用 → `Run migration self-test` 验证。
 2. DEBUG build → Settings → iCloud Sync → `Initialize Cloud schema (Development)`。
 3. 手动到 [CloudKit Console](https://icloud.developer.apple.com) 把 schema 从
    Development promote 到 Production。
