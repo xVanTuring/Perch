@@ -108,11 +108,18 @@ private struct SyncTabContent: View {
                 if !engine.devices.isEmpty {
                     Section(L.t(.syncDevices)) {
                         ForEach(engine.devices, id: \.deviceID) { device in
-                            LabeledContent(device.deviceID == engine.ownDeviceID
-                                           ? L.t(.syncThisMac, device.name) : device.name) {
-                                Text(L.t(.syncLastSeen,
-                                         device.lastSeen.formatted(.relative(presentation: .named))))
-                                    .foregroundStyle(.secondary)
+                            let isThisMac = device.deviceID == engine.ownDeviceID
+                            LabeledContent(isThisMac ? L.t(.syncThisMac, device.name) : device.name) {
+                                HStack(spacing: 10) {
+                                    Text(L.t(.syncLastSeen,
+                                             device.lastSeen.formatted(.relative(presentation: .named))))
+                                        .foregroundStyle(.secondary)
+                                    if !isThisMac {
+                                        Button(L.t(.syncRemoveDevice)) { confirmRemove(device) }
+                                            .buttonStyle(.borderless)
+                                            .disabled(engine.phase != .idle)
+                                    }
+                                }
                             }
                         }
                     }
@@ -136,6 +143,16 @@ private struct SyncTabContent: View {
         case .syncing:             return L.t(.syncStatusSyncing)
         case .failed(let message): return L.t(.syncStatusFailed, message)
         }
+    }
+
+    private func confirmRemove(_ device: SyncFolder.DeviceInfo) {
+        let alert = NSAlert()
+        alert.messageText = L.t(.syncRemoveDeviceTitle, device.name)
+        alert.informativeText = L.t(.syncRemoveDeviceMessage)
+        alert.addButton(withTitle: L.t(.syncRemoveDeviceConfirm))
+        alert.addButton(withTitle: L.t(.cancel))
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        engine.removeDevice(device.deviceID)
     }
 
     private func openPrivacySettings() {

@@ -245,9 +245,22 @@ enum ConflictHeader {
         return f
     }()
 
+    static let prefix = "> 同步冲突 / Sync conflict — "
+
     static func make(deviceName: String, date: Date) -> String {
         let name = deviceName.replacingOccurrences(of: "\n", with: " ")
-        return "> 同步冲突 / Sync conflict — \(name), \(formatter.string(from: date)) UTC"
+        return prefix + "\(name), \(formatter.string(from: date)) UTC"
+    }
+
+    /// 拆开冲突副本的正文:说明行(去掉开头的 `> `)和落选版本的原文。
+    /// 不是以说明行开头的(不是冲突副本,或用户删掉了说明行)原样返回、说明行为 nil。
+    static func split(_ content: String) -> (header: String?, body: String) {
+        guard content.hasPrefix(prefix) else { return (nil, content) }
+        let lines = content.split(separator: "\n", maxSplits: 1, omittingEmptySubsequences: false)
+        let header = String(lines[0].dropFirst(2))
+        var body = lines.count > 1 ? String(lines[1]) : ""
+        if body.hasPrefix("\n") { body.removeFirst() }   // make() 在说明行后面空了一行
+        return (header, body)
     }
 }
 

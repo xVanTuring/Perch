@@ -57,6 +57,8 @@ struct ManagerView: View {
     @State private var menuVisibilityToken = 0
     /// 图片面板 popover 的开关(toolbar 上的相机按钮)。
     @State private var showNoteImages = false
+    /// 冲突对比窗口的开关(选中的是同步冲突副本时 toolbar 上出现)。
+    @State private var comparingConflict = false
     @ObservedObject private var loc = LocalizationManager.shared
 
     /// 当前单选中的笔记。多选 / 无选 / 在回收站等视图里都是 nil ——
@@ -136,6 +138,23 @@ struct ManagerView: View {
                     .help(L.t(.noteImagesButton))
                     .popover(isPresented: $showNoteImages, arrowEdge: .bottom) {
                         NoteImagesPopover(note: note)
+                    }
+                }
+            }
+            // 同步冲突副本:和原便签并排对比,选一个留下。只在单选一条冲突副本、
+            // 且它开头还带着说明行时出现(用户已经处理掉的不再提示)。
+            if let note = selectedNote,
+               let originalID = SyncEngine.shared?.conflictOriginalID(of: note.id),
+               ConflictHeader.split(note.content).header != nil {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        comparingConflict = true
+                    } label: {
+                        Label(L.t(.syncConflictCompare), systemImage: "arrow.left.arrow.right.square")
+                    }
+                    .help(L.t(.syncConflictCompare))
+                    .sheet(isPresented: $comparingConflict) {
+                        ConflictCompareView(copy: note, originalID: originalID, floating: floating)
                     }
                 }
             }

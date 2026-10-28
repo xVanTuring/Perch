@@ -481,6 +481,10 @@ struct GeneralTab: View {
         alert.alertStyle = .critical
         alert.messageText = L.t(.generalClearAllConfirmTitle)
         alert.informativeText = L.t(.generalClearAllConfirmMsg, counts.notes, counts.groups)
+        // 开着同步时,删除会同步到所有 Mac(每条都写删除标记),一定要说出来。
+        if SyncConfig.isEnabled {
+            alert.informativeText += "\n\n" + L.t(.generalClearAllSyncWarning)
+        }
         let clear = alert.addButton(withTitle: L.t(.generalClearAllConfirmButton))
         clear.hasDestructiveAction = true
         clear.keyEquivalent = ""          // 不做回车默认,防误删

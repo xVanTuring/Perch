@@ -101,6 +101,7 @@ enum LocKey: String {
     // General → 数据(危险区:清空全部内容)
     case generalDataSection, generalClearAll, generalClearAllDesc
     case generalClearAllConfirmTitle, generalClearAllConfirmMsg, generalClearAllConfirmButton
+    case generalClearAllSyncWarning
     case generalClearAllDone
     // General → 数据(仅 DEBUG:演示数据填充)
     case generalFillDemo, generalFillDemoDesc, generalFillDemoDone
@@ -181,6 +182,10 @@ enum LocKey: String {
     case syncErrorFolderMissing, syncErrorNewerFormat, syncErrorNoPermission
     case syncRetry, syncOpenPrivacySettings
     case syncDebugOverride
+    case syncFirstTitle, syncFirstOnlyMac, syncFirstReceived, syncFirstConflicts
+    case syncRemoveDevice, syncRemoveDeviceTitle, syncRemoveDeviceMessage, syncRemoveDeviceConfirm
+    case syncConflictCompare, syncConflictTitle, syncConflictExplain, syncConflictOther, syncConflictCurrent
+    case syncConflictOriginalGone, syncConflictUseOther, syncConflictKeepCurrent, syncConflictKeepAsNote, syncConflictFooter
 
     // Manager toolbar / sidebar
     case managerSearch, managerNewGroup, managerNewNote
@@ -341,6 +346,7 @@ enum L {
         .generalClearAll: "Clear All Content…",
         .generalClearAllDesc: "Permanently deletes every note (including Archive and Trash) and every group. Settings are kept. This cannot be undone — export a backup first via Manage All Notes → Data.",
         .generalClearAllConfirmTitle: "Clear all content?",
+        .generalClearAllSyncWarning: "⚠️ Sync is on: everything will also be deleted on your other Macs.",
         .generalClearAllConfirmMsg: "This permanently deletes all %d note(s) and %d group(s), including Archive and Trash. This cannot be undone.\n\nConsider exporting a backup first (Manage All Notes → Data).",
         .generalClearAllConfirmButton: "Clear Everything",
         .generalClearAllDone: "Cleared: deleted %d note(s) and %d group(s).",
@@ -479,6 +485,24 @@ enum L {
         .syncRetry: "Retry",
         .syncOpenPrivacySettings: "Open Privacy & Security",
         .syncDebugOverride: "Debug: syncing into PERCH_SYNC_DIR",
+        .syncFirstTitle: "Sync is on",
+        .syncRemoveDevice: "Remove…",
+        .syncRemoveDeviceTitle: "Remove “%@”?",
+        .syncRemoveDeviceMessage: "Only do this for a Mac you no longer use. This Mac first takes over everything it synced, then deletes its files from the sync folder, so no notes are lost. If that Mac turns on sync again later, it simply rejoins.",
+        .syncRemoveDeviceConfirm: "Remove",
+        .syncFirstOnlyMac: "This is the first Mac to turn on sync. Your other Macs will receive these notes once you turn on sync there.",
+        .syncFirstReceived: "Received %d note(s) from your other Macs. Notes on this Mac have been sent to them.",
+        .syncFirstConflicts: "%d note(s) were different on the two sides. The other version is in the “Sync conflicts” group — open Manage All Notes, select it and click “Compare Versions” to choose which to keep.",
+        .syncConflictCompare: "Compare Versions",
+        .syncConflictTitle: "Sync Conflict",
+        .syncConflictExplain: "This note was changed on two Macs at the same time. On the left is the other version, on the right the note as it is now. Highlighted lines are the ones that differ.",
+        .syncConflictOther: "Other version",
+        .syncConflictCurrent: "Current note",
+        .syncConflictOriginalGone: "The original note no longer exists.",
+        .syncConflictUseOther: "Use Other Version",
+        .syncConflictKeepCurrent: "Keep Current",
+        .syncConflictKeepAsNote: "Keep as a Normal Note",
+        .syncConflictFooter: "Either way, this conflict copy is moved to Trash.",
         .iCloudSunsetBody: "Perch now keeps notes only on this Mac. Everything that was synced is already here — nothing was lost.\n\nYour Macs no longer sync with each other. To bring notes to another Mac, use Manage All Notes → Data → Export All Notes (SQLite)… here, then Import All Notes (SQLite)… on the other Mac. Notes it already has are skipped.",
 
         .managerSearch: "Search all notes",
@@ -663,6 +687,7 @@ enum L {
         .generalClearAll: "清空全部内容…",
         .generalClearAllDesc: "永久删除全部便签(含归档与回收站)和全部分组,设置/偏好保留。无法撤销 —— 建议先在「管理所有便签 → 数据」导出备份。",
         .generalClearAllConfirmTitle: "清空全部内容?",
+        .generalClearAllSyncWarning: "⚠️ 同步已开启：其他 Mac 上的这些内容也会一起被删除。",
         .generalClearAllConfirmMsg: "这将永久删除全部 %d 条便签和 %d 个分组(含归档与回收站),无法撤销。\n\n建议先在「管理所有便签 → 数据」导出备份。",
         .generalClearAllConfirmButton: "清空全部",
         .generalClearAllDone: "已清空:删除了 %d 条便签和 %d 个分组。",
@@ -801,6 +826,24 @@ enum L {
         .syncRetry: "重试",
         .syncOpenPrivacySettings: "打开「隐私与安全性」",
         .syncDebugOverride: "调试：正在同步到 PERCH_SYNC_DIR",
+        .syncFirstTitle: "同步已开启",
+        .syncRemoveDevice: "移除…",
+        .syncRemoveDeviceTitle: "移除「%@」？",
+        .syncRemoveDeviceMessage: "只对不再使用的 Mac 这样做。这台 Mac 会先接管它同步过的全部内容，再删掉它在同步文件夹里的文件，便签不会丢。那台 Mac 以后如果又打开同步，会重新加入。",
+        .syncRemoveDeviceConfirm: "移除",
+        .syncFirstOnlyMac: "这是第一台开启同步的 Mac。在其他 Mac 上打开同步后，它们会收到这里的便签。",
+        .syncFirstReceived: "已从其他 Mac 收到 %d 条便签，这台 Mac 上的便签也已发送给它们。",
+        .syncFirstConflicts: "其中 %d 条在两边的内容不同，另一版放在「同步冲突」分组里。打开「管理所有便签」，选中它后点「对比冲突版本」，选一个保留即可。",
+        .syncConflictCompare: "对比冲突版本",
+        .syncConflictTitle: "同步冲突",
+        .syncConflictExplain: "这条便签在两台 Mac 上被同时修改。左边是另一版，右边是便签现在的内容，高亮的是两边不同的行。",
+        .syncConflictOther: "另一版",
+        .syncConflictCurrent: "现在的便签",
+        .syncConflictOriginalGone: "原便签已经不存在了。",
+        .syncConflictUseOther: "改用另一版",
+        .syncConflictKeepCurrent: "保留现在的",
+        .syncConflictKeepAsNote: "作为普通便签保留",
+        .syncConflictFooter: "无论选哪个，这条冲突副本都会移进回收站。",
         .iCloudSunsetBody: "Perch 现在只把便签保存在这台 Mac 上。之前同步过的内容都已经在本机,没有丢失。\n\n多台 Mac 之间不再互相同步。要把便签带到另一台 Mac:在这台用「管理所有便签 → 数据 → 导出全部便签 (SQLite)…」,再到另一台用「导入全部便签 (SQLite)…」,那台已有的便签会自动跳过。",
 
         .managerSearch: "搜索所有便签",

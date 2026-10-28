@@ -51,6 +51,10 @@ final class SyncEngine: ObservableObject {
     private var importRequestedAgain = false
     /// stop() / restart() 之后,还在路上的后台结果作废。
     private var generation = 0
+    /// 这个数据目录第一次开启同步:第一次导入完成后弹一个总结。
+    private var showFirstSyncSummary = false
+    /// 第一次导入期间从别的 Mac 新建到本机的便签数。
+    private var notesReceived = 0
 
     private init(context: NSManagedObjectContext, registry: FloatingNotesRegistry) {
         self.context = context
@@ -144,6 +148,9 @@ final class SyncEngine: ObservableObject {
         self.identity = identity
         self.state = state
         ownDeviceID = identity.deviceID
+        // 同步状态是空的 = 这个数据目录从没同步过(刚在设置里打开)。
+        showFirstSyncSummary = state.records.isEmpty
+        notesReceived = 0
         clock = HybridLogicalClock(deviceID: identity.deviceID,
                                    millis: state.meta.clockMillis,
                                    counter: state.meta.clockCounter)
@@ -170,6 +177,12 @@ final class SyncEngine: ObservableObject {
         }
         phase = .idle
         scheduleImport(after: 0)
+        #if DEBUG
+        // 测试用:启动并完成第一次导入后移除指定的设备(和设置页「移除」走同一个方法)。
+        if let device = ProcessInfo.processInfo.environment["PERCH_SYNC_REMOVE_DEVICE"], !device.isEmpty {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self] in self?.removeDevice(device) }
+        }
+        #endif
     }
 
     @objc private func didWake() {
@@ -405,6 +418,69 @@ final class SyncEngine: ObservableObject {
 
     func syncNow() { scheduleImport(after: 0) }
 
+    /// 移除一台不再使用的 Mac(设置 → 同步 → 设备列表)。
+    ///
+    /// 那台 Mac 文件夹里的记录,可能是某些便签在同步文件夹里仅有的一份 —— 直接删掉的话,
+    /// 以后新加入的 Mac 就收不到了。所以先「接过来」:每条记录里它的字段比本机文件里的新,
+    /// 就连同原时间戳一起写进本机文件夹(正文连同版本向量);它的删除标记也接过来。
+    /// 之后再删它的文件夹。合并结果不变,只是这些内容换到了本机的文件里。
+    /// 那台 Mac 以后又打开同步,会重新写出自己的文件夹,照常加入。
+    func removeDevice(_ device: String) {
+        guard let state, let folder, let identity, device != identity.deviceID else { return }
+        var adopted = 0
+        for key in state.allKeys {
+            guard let theirs = state[key]?.remote[device] else { continue }
+            var changed = false
+            state.update(key) { s in
+                var own = s.own ?? SyncRecord(id: key.id)
+                for (name, field) in theirs.fields
+                where (own.fields[name]?.hlc).map({ $0 < field.hlc }) ?? true {
+                    own.fields[name] = field
+                    if name == SyncFieldName.content {
+                        own.contentVersion = (own.contentVersion ?? VersionVector())
+                            .merged(with: theirs.contentVersion ?? VersionVector())
+                    }
+                    changed = true
+                }
+                if let deleted = theirs.deleted, own.deleted.map({ $0 < deleted }) ?? true {
+                    own.deleted = deleted
+                    changed = true
+                }
+                if changed { s.own = own }
+                s.remote[device] = nil
+            }
+            if changed {
+                writeOwnRecord(key)
+                adopted += 1
+                // 图片数据在那台 Mac 自己的 blobs/ 里,文件夹删掉就没了:用本机存着的数据
+                // 在本机文件夹里补一份(io 串行,补完才删它的文件夹)。
+                if key.kind == .images, let image = fetch(NoteImage.self, key.id), let data = image.data {
+                    let url = folder.blobURL(device: identity.deviceID, id: key.id,
+                                             fileExtension: image.fileExtension)
+                    io.async {
+                        guard !FileManager.default.fileExists(atPath: url.path) else { return }
+                        try? folder.write(data, to: url)
+                    }
+                }
+            }
+        }
+        for path in state.meta.remoteStats.keys where path.hasPrefix(device + "/") {
+            state.meta.remoteStats[path] = nil
+        }
+        state.markMetaDirty()
+        flushState()
+        // io 是串行队列:上面接过来的文件都写完了才删它的文件夹。
+        let directory = folder.deviceDirectory(device)
+        io.async { folder.remove(directory) }
+        devices.removeAll { $0.deviceID == device }
+        NSLog("Perch sync: removed device %@, adopted %d record(s)", device, adopted)
+    }
+
+    /// 冲突副本对应的原便签 UUID。不是冲突副本、或同步没在运行时为 nil。
+    func conflictOriginalID(of noteID: UUID) -> UUID? {
+        state?[.init(kind: .notes, id: noteID)]?.base[SyncFieldName.conflictOf]?.value.uuidValue
+    }
+
     private func scheduleImport(after delay: TimeInterval, reason: String = "") {
         guard state != nil else { return }
         if !reason.isEmpty { NSLog("Perch sync: import requested (%@)", reason) }
@@ -571,6 +647,13 @@ final class SyncEngine: ObservableObject {
         lastSyncAt = Date()
         phase = .idle
         importInFlight = false
+        if showFirstSyncSummary {
+            showFirstSyncSummary = false
+            let received = notesReceived
+            let conflicts = conflictCopiesCreated
+            let others = devices.filter { $0.deviceID != ownDeviceID }.count
+            DispatchQueue.main.async { Self.presentFirstSyncSummary(received: received, conflicts: conflicts, otherMacs: others) }
+        }
         if importRequestedAgain {
             importRequestedAgain = false
             scheduleImport(after: 0.5)
@@ -634,6 +717,7 @@ final class SyncEngine: ObservableObject {
 
     private func applyNote(_ result: MergedRecord) -> Bool {
         let existing = fetch(Note.self, result.id)
+        if existing == nil, !result.isDeleted { notesReceived += 1 }
         if result.isDeleted {
             guard let note = existing else { return true }
             ReminderScheduler.shared.cancel(noteID: note.id)
@@ -673,6 +757,26 @@ final class SyncEngine: ObservableObject {
         ReminderScheduler.shared.schedule(noteID: note.id,
                                           title: note.cleanTitle.isEmpty ? L.t(.appName) : note.cleanTitle,
                                           body: String(body.prefix(120)), fireAt: date)
+    }
+
+    /// 第一次开启同步后的说明。在设置里刚打开开关时出现,不打断别的操作(下一拍再弹)。
+    private static func presentFirstSyncSummary(received: Int, conflicts: Int, otherMacs: Int) {
+        #if DEBUG
+        // 自动测试会反复全新启动测试实例,别每次都弹窗。
+        if ProcessInfo.processInfo.environment["PERCH_SYNC_QUIET"] == "1" { return }
+        #endif
+        let alert = NSAlert()
+        alert.messageText = L.t(.syncFirstTitle)
+        if otherMacs == 0 {
+            alert.informativeText = L.t(.syncFirstOnlyMac)
+        } else {
+            var text = L.t(.syncFirstReceived, received)
+            if conflicts > 0 { text += "\n\n" + L.t(.syncFirstConflicts, conflicts) }
+            alert.informativeText = text
+        }
+        alert.addButton(withTitle: L.t(.ok))
+        NSApp.activate(ignoringOtherApps: true)
+        alert.runModal()
     }
 
     // MARK: - 冲突副本

@@ -100,6 +100,8 @@ final class SyncLocalState {
 
     func markMetaDirty() { metaDirty = true }
 
+    var allKeys: [Key] { Array(records.keys) }
+
     func keys(of kind: SyncFolder.Kind) -> [Key] {
         records.keys.filter { $0.kind == kind }
     }

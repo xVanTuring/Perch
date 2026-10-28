@@ -217,6 +217,18 @@ final class SyncMergeTests: XCTestCase {
         }
     }
 
+    // MARK: 冲突副本的说明行
+
+    func testConflictHeaderSplitsBackToTheOriginalText() {
+        let body = "# 标题\n\n第二段"
+        let content = ConflictHeader.make(deviceName: "iMac", date: Date(timeIntervalSince1970: 0)) + "\n\n" + body
+        let parts = ConflictHeader.split(content)
+        XCTAssertEqual(parts.header, "同步冲突 / Sync conflict — iMac, 1970-01-01 00:00 UTC")
+        XCTAssertEqual(parts.body, body)
+        XCTAssertNil(ConflictHeader.split("普通便签").header)
+        XCTAssertEqual(ConflictHeader.split("普通便签").body, "普通便签")
+    }
+
     // MARK: 固定 UUID
 
     func testDeterministicUUIDIsAValidVersion5UUID() {
