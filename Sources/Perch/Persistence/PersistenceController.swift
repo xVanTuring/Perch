@@ -53,6 +53,11 @@ final class PersistenceController {
 
         if inMemory, let desc = container.persistentStoreDescriptions.first {
             desc.url = URL(fileURLWithPath: "/dev/null")
+        } else if let dir = PerchPaths.overriddenDataDirectory,
+                  let desc = container.persistentStoreDescriptions.first {
+            // DEBUG `PERCH_DATA_DIR`:测试实例用自己的库,不碰真实数据。
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            desc.url = dir.appendingPathComponent("Perch.sqlite")
         }
         // Perch 用全新的 bundle id,所以是一个**全新的 app 身份**:store 默认落在
         // ~/Library/Application Support/Perch/Perch.sqlite(干净起点)。旧版 Noticky

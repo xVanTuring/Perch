@@ -672,6 +672,18 @@ final class FloatingNotesRegistry {
         }
     }
 
+    /// 同步导入用:别的 Mac 把这条笔记移进回收站 / 归档 / 永久删除了,关掉本机的浮窗。
+    /// 只关窗口(onClose 会清 isPinned),字段由 SyncEngine 在**下一拍**再写 —— 和
+    /// delete / archive 一样,不在 SwiftUI 还持有这条笔记的同一拍里改它或删它。
+    func closeWindowForSync(note: Note) {
+        let id = note.objectID
+        guard let wc = windows[id] else { return }
+        wc.close()
+        windows[id] = nil
+        displayOrder.removeAll { $0 == id }
+        applyLayout()
+    }
+
     /// 真删一条:回收站里的"彻底删除"按钮走这条。直接 context.delete + save。
     /// 浮窗已经在 trash 时关掉了,这里不需要再处理。
     func deletePermanently(note: Note) {

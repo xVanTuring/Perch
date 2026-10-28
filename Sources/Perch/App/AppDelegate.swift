@@ -66,6 +66,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 窗口都起来之后再弹(见下方 legacyImport)。
         let legacyImport = LegacyNotickyImport.importIfNeeded(into: context)
 
+        #if DEBUG
+        // 测试同步用(配合 PERCH_DATA_DIR,见 PerchPaths):空库填一份演示数据,
+        // 都是新生成的 UUID,不碰真实笔记。
+        if ProcessInfo.processInfo.environment["PERCH_DEMO_DATA"] == "1",
+           ((try? context.count(for: NSFetchRequest<Note>(entityName: "Note"))) ?? 0) == 0 {
+            _ = DemoData.fill(into: context)
+            // 再加一张图片和引用它的笔记,测图片同步。
+            let square = NSImage(size: NSSize(width: 64, height: 64), flipped: false) { rect in
+                NSColor.systemOrange.setFill()
+                rect.fill()
+                return true
+            }
+            if let tiff = square.tiffRepresentation,
+               let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:]) {
+                let image = NoteImage(context: context)
+                let imageID = UUID()
+                image.id = imageID
+                image.data = png
+                image.fileExtension = "png"
+                image.createdAt = Date()
+                let note = Note.create(in: context, content: "Image demo\n\n![[Demo image|\(imageID.uuidString)]]")
+                image.ownerNoteID = note.id
+                try? context.save()
+            }
+        }
+        #endif
+
         manager = ManagerWindowController(context: context, floating: floating)
         menuBar = MenuBarController(context: context, floating: floating, manager: manager, settings: settings)
         capture = CaptureWindowController(context: context, floating: floating)
@@ -123,6 +150,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // 开过 iCloud 同步的 Mac 升级到「只存本地」版本后,第一次启动告知一次。
         // 同上,放在窗口恢复之后再 modal。
         ICloudSunsetNotice.showIfNeeded()
+
+        // 同步文件夹(默认 iCloud 云盘/Perch)。没开同步时只建对象、不做任何事。
+        // 放在浮窗恢复之后:导入时要按需关掉别的 Mac 移进回收站的笔记的浮窗。
+        SyncEngine.setUp(context: context, registry: floating)
 
         // Sparkle 静默检查:第一次访问 `.shared` 触发 controller init,
         // 后续整个进程生命周期里都活着。`checkInBackground` 只有真有
@@ -505,6 +536,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// 下次启动 restorePinnedNotes 才能 fetch 到这些笔记。
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         floating.isTerminating = true
+        // 最后 2 秒内的修改还没导出:现在写出去,等文件写完再退出。
+        SyncEngine.shared?.flushBeforeQuit()
         return .terminateNow
     }
 }

@@ -53,6 +53,12 @@ enum SettingsKey {
     /// 「iCloud 同步已下线」提示弹过没有(ICloudSunsetNotice,每台 Mac 只弹一次)。
     static let didShowICloudSunsetNotice = "Perch.didShowICloudSunsetNotice"   // Bool
 
+    /// 通过同步文件夹(默认 iCloud 云盘/Perch)同步,docs/icloud-drive-sync.md。
+    /// 新 key,不复用上面的 iCloudSyncEnabled(用过 CloudKit 同步的 Mac 上它还是 true)。
+    static let syncEnabled = "Perch.syncEnabled"                     // Bool,默认 false
+    /// 用户自选的同步文件夹路径;没设就用 iCloud 云盘/Perch。
+    static let syncFolderPath = "Perch.syncFolderPath"               // String?
+
     /// 回收站保留天数。超过这个天数的 trashed 笔记会在启动时被
     /// `purgeExpiredTrash` 真删。范围 7-365,未设默认 30(对齐 Notes/Mail)。
     static let trashRetentionDays = "Noticky.trashRetentionDays" // Int

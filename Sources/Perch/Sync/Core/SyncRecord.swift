@@ -33,7 +33,6 @@ enum SyncFieldName {
     static let updatedAt = "updatedAt"
     static let groupID = "groupID"
     static let colorIndex = "colorIndex"
-    static let displayOrder = "displayOrder"
     static let isTrashed = "isTrashed"
     static let trashedAt = "trashedAt"
     static let isArchived = "isArchived"
@@ -41,6 +40,12 @@ enum SyncFieldName {
     static let reminderDate = "reminderDate"
     /// 只出现在冲突副本上:原笔记的 UUID。Core Data 里没有这个字段,同步状态库记着它。
     static let conflictOf = "conflictOf"
+    // 分组
+    static let name = "name"
+    static let sortOrder = "sortOrder"
+    // 图片(数据本身在 blobs/ 里)
+    static let fileExtension = "fileExtension"
+    static let ownerNoteID = "ownerNoteID"
 }
 
 /// 字段值。日期存成带毫秒的 ISO 8601 UTC 字符串、UUID 存成大写字符串 ——

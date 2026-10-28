@@ -55,8 +55,13 @@ enum SingleInstanceLock {
     }
 
     /// `~/Library/Application Support/Perch/instance.lock` —— 跟 sqlite 同目录。
+    /// DEBUG 用 `PERCH_DATA_DIR` 换了数据目录时锁也跟过去,测试实例能和正常实例同时跑。
     private static func lockFileURL() -> URL? {
         let fm = FileManager.default
+        if let dir = PerchPaths.overriddenDataDirectory {
+            try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+            return dir.appendingPathComponent("instance.lock")
+        }
         guard let appSup = try? fm.url(
             for: .applicationSupportDirectory, in: .userDomainMask,
             appropriateFor: nil, create: true

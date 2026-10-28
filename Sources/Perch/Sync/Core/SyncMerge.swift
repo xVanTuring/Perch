@@ -41,13 +41,20 @@ struct ConflictCopy: Equatable {
     /// 写进本机文件夹的记录。
     func makeRecord() -> SyncRecord {
         let date = SyncValue.date(hlc.date)
+        // 笔记的每个同步字段都给出固定值:缺了哪个,收到副本的设备就会把本地默认值
+        // 当成自己的修改再写一遍。
         let fields: [String: SyncValue] = [
             SyncFieldName.content: .string(content),
             SyncFieldName.conflictOf: .uuid(originalID),
             SyncFieldName.groupID: .uuid(DeterministicUUID.conflictGroupID),
             SyncFieldName.createdAt: date,
             SyncFieldName.updatedAt: date,
+            SyncFieldName.colorIndex: .int(0),
             SyncFieldName.isTrashed: .bool(false),
+            SyncFieldName.trashedAt: .null,
+            SyncFieldName.isArchived: .bool(false),
+            SyncFieldName.archivedAt: .null,
+            SyncFieldName.reminderDate: .null,
         ]
         return SyncRecord(id: id,
                           fields: fields.mapValues { SyncField(value: $0, hlc: hlc) },
