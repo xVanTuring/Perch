@@ -8,7 +8,7 @@
 - [x] Settings → **Notes** 补 tab 内容:默认便签颜色 / 默认字号(12-24,实时同步)/ 默认窗口尺寸(Small/Medium/Large)/ 默认进编辑态 toggle
 - [x] Settings → **iCloud Sync** 真正接入(`NSPersistentCloudKitContainer` + Sync UI/状态展示 + 实时同步)。已验证中国区 iCloud (gateway.icloud.com.cn) 跑通。坑:**macOS 用 `com.apple.developer.aps-environment`,不是 iOS 的 `aps-environment`**,写错 codesign 静默丢 key,数据库 subscription 创建失败把整个 setup 链拖死
 
-- [ ] **跨设备同步重新设计**:iCloud 同步 2026-10-28 下线(`CloudKitConfig.syncAvailable = false`,entitlements 已删),原因是 CloudKit 容器绑定开发者账号,换账号后读不到旧容器。候选:换新容器重开 CloudKit / 同步文件夹 / WebDAV。iCloud Drive 方案草案见 [docs/icloud-drive-sync.md](docs/icloud-drive-sync.md)。重开 CloudKit 时开关换新 key(见 CLAUDE.md)
+- [ ] **跨设备同步重新设计**:iCloud 同步 2026-10-28 下线(`CloudKitConfig.syncAvailable = false`,entitlements 已删),原因是 CloudKit 容器绑定开发者账号,换账号后读不到旧容器。候选:换新容器重开 CloudKit / 同步文件夹 / WebDAV。iCloud Drive 方案见 [docs/icloud-drive-sync.md](docs/icloud-drive-sync.md),第一阶段已完成(2026-10-28,未发版),第二阶段待做。重开 CloudKit 时开关换新 key(见 CLAUDE.md)
 
 ## B. 体验类(常见便签 app 有 / 用户可能想要)
 

@@ -90,18 +90,31 @@ comment in `Perch.entitlements`), and **use a new toggle key** instead of
 and would start syncing the moment they update. Meanwhile keep schema changes
 CloudKit-compatible (rules at the top of `SchemaV1.swift`).
 
-## Sync over iCloud Drive (in progress)
+## Sync over iCloud Drive (phase 1 done, not released)
 
-Design: [`docs/icloud-drive-sync.md`](docs/icloud-drive-sync.md) — each Mac writes
-only its own folder, Perch merges per field and turns concurrent body edits into
-conflict-copy notes. Done so far: `Sources/Perch/Sync/Core/` (record format, hybrid
-logical clock, version vector, `SyncMerge`) with tests in `Tests/PerchSyncTests/`.
-Not wired into the app yet. The `PerchSyncTests` target compiles `Sync/Core`
-directly (no test host, so tests don't launch Perch) — **files in `Sync/Core` may
-only use Foundation / CryptoKit**, never app types. Merge results must not depend on
-input order or duplicates; `testResultDoesNotDependOnOrderOrDuplicates` guards that.
-The iCloud Drive behaviours the design relies on are checked by `tools/sync-probe/`
-on two Macs before any file I/O code is written.
+Design + test results: [`docs/icloud-drive-sync.md`](docs/icloud-drive-sync.md).
+Settings → Sync (`SyncTab`) turns it on (`SettingsKey.syncEnabled`, a new key — not
+the old CloudKit `iCloudSyncEnabled`). Folder defaults to iCloud Drive/Perch.
+
+- `Sync/Core/` — record format, hybrid logical clock, version vector, `SyncMerge`.
+  Compiled straight into `PerchSyncTests` (no test host) — **may only use Foundation /
+  CryptoKit**. Merge results must not depend on input order or duplicates.
+- `SyncEngine` — export = diff each record against `base` (last merged state), so
+  imported values are never written back; import on FSEvents / launch / wake / 5 min,
+  reads only files whose size+mtime changed, 32 at a time (cloud-only files download
+  on read, ~1 s each).
+- Folder layout `<root>/<device>/{notes,groups,images,blobs}` — **nothing below the
+  root is shared**: two Macs creating the same folder at once get one renamed by
+  iCloud Drive ("devices 2"). A renamed root is merged back (`mergeDuplicateRoots`).
+- **Every record change is a new file** `<UUID>.<millis>-<counter>.json`, then the old
+  one is removed: iCloud Drive delivers a rewrite of an already-downloaded file in
+  40–60 s, a new file in 3–4 s.
+- Perch.app gets a one-time system prompt for iCloud Drive access; denial shows in the
+  Sync tab with Retry / Privacy & Security buttons.
+- Test hooks (DEBUG only): `PERCH_DATA_DIR` (own store, lock, sync state — runs next to
+  the real instance), `PERCH_SYNC_DIR` (folder, forces sync on), `PERCH_DEMO_DATA=1`.
+  Launch with `-Perch.mcpServerEnabled NO` so a test instance doesn't fight for the
+  MCP port. UserDefaults are still shared with the real instance.
 
 ## Schema → CloudKit deployment workflow
 
