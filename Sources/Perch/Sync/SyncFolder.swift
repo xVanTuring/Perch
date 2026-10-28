@@ -75,9 +75,9 @@ struct SyncFolder {
         var errorDescription: String? {
             switch self {
             case .parentMissing(let url):
-                return "Folder not found: \(url.path). Is iCloud Drive turned on?"
-            case .newerFormat(let format):
-                return "The sync folder uses format \(format), newer than this Perch understands (\(SyncFormat.current)). Update Perch on this Mac."
+                return L.t(.syncErrorFolderMissing, (url.path as NSString).abbreviatingWithTildeInPath)
+            case .newerFormat:
+                return L.t(.syncErrorNewerFormat)
             }
         }
     }

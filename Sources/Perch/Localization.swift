@@ -169,6 +169,17 @@ enum LocKey: String {
     case legacyImportDoneTitle, legacyImportDoneBody, legacyImportKeep, legacyImportDelete
     // iCloud 同步下线后的一次性告知(ICloudSunsetNotice)
     case iCloudSunsetTitle, iCloudSunsetBody
+    // Settings → Sync(同步文件夹,docs/icloud-drive-sync.md)
+    case tabSync
+    case syncEnable, syncEnableDesc
+    case syncFolder, syncFolderChange, syncFolderReset, syncShowInFinder, syncFolderFooter
+    case syncChooseFolder
+    case syncStatus, syncStatusOff, syncStatusStarting, syncStatusIdle, syncStatusSyncing, syncStatusFailed
+    case syncLastSync, syncNever, syncNow
+    case syncDevices, syncThisMac, syncLastSeen
+    case syncConflicts
+    case syncErrorFolderMissing, syncErrorNewerFormat
+    case syncDebugOverride
 
     // Manager toolbar / sidebar
     case managerSearch, managerNewGroup, managerNewNote
@@ -439,6 +450,31 @@ enum L {
         .legacyImportKeep: "Keep Old Data",
         .legacyImportDelete: "Delete Old Data",
         .iCloudSunsetTitle: "iCloud sync has been turned off",
+        .tabSync: "Sync",
+        .syncEnable: "Sync through iCloud Drive",
+        .syncEnableDesc: "Keeps notes, groups and images in sync across your Macs through a folder in iCloud Drive. Each Mac writes only its own files and Perch merges them. If the same note is changed on two Macs at once, the other version is kept as a separate note in the “Sync conflicts” group.",
+        .syncFolder: "Sync folder",
+        .syncFolderChange: "Change…",
+        .syncFolderReset: "Use iCloud Drive",
+        .syncShowInFinder: "Show in Finder",
+        .syncFolderFooter: "A folder kept in sync by another app, such as Dropbox or Syncthing, also works. Every Mac must use the same folder.",
+        .syncChooseFolder: "Choose",
+        .syncStatus: "Status",
+        .syncStatusOff: "Off",
+        .syncStatusStarting: "Starting…",
+        .syncStatusIdle: "Up to date",
+        .syncStatusSyncing: "Syncing…",
+        .syncStatusFailed: "Error: %@",
+        .syncLastSync: "Last synced",
+        .syncNever: "Never",
+        .syncNow: "Sync Now",
+        .syncDevices: "Macs",
+        .syncThisMac: "%@ (this Mac)",
+        .syncLastSeen: "Last seen %@",
+        .syncConflicts: "Conflicting versions kept since launch",
+        .syncErrorFolderMissing: "Folder not found: %@. Make sure iCloud Drive is turned on.",
+        .syncErrorNewerFormat: "This sync folder was written by a newer version of Perch. Update Perch on this Mac first.",
+        .syncDebugOverride: "Debug: syncing into PERCH_SYNC_DIR",
         .iCloudSunsetBody: "Perch now keeps notes only on this Mac. Everything that was synced is already here — nothing was lost.\n\nYour Macs no longer sync with each other. To bring notes to another Mac, use Manage All Notes → Data → Export All Notes (SQLite)… here, then Import All Notes (SQLite)… on the other Mac. Notes it already has are skipped.",
 
         .managerSearch: "Search all notes",
@@ -733,6 +769,31 @@ enum L {
         .legacyImportKeep: "保留旧数据",
         .legacyImportDelete: "删除旧数据",
         .iCloudSunsetTitle: "iCloud 同步已下线",
+        .tabSync: "同步",
+        .syncEnable: "通过 iCloud 云盘同步",
+        .syncEnableDesc: "通过 iCloud 云盘里的一个文件夹，在你的多台 Mac 之间同步便签、分组和图片。每台 Mac 只写自己的文件，由 Perch 合并。如果同一条便签在两台 Mac 上同时被修改，另一版会另存为一条便签，放在「同步冲突」分组里。",
+        .syncFolder: "同步文件夹",
+        .syncFolderChange: "更改…",
+        .syncFolderReset: "改回 iCloud 云盘",
+        .syncShowInFinder: "在 Finder 中显示",
+        .syncFolderFooter: "也可以选由其他同步工具（如 Dropbox、Syncthing）管理的文件夹。所有 Mac 要选同一个文件夹。",
+        .syncChooseFolder: "选择",
+        .syncStatus: "状态",
+        .syncStatusOff: "未开启",
+        .syncStatusStarting: "正在启动…",
+        .syncStatusIdle: "已是最新",
+        .syncStatusSyncing: "正在同步…",
+        .syncStatusFailed: "出错：%@",
+        .syncLastSync: "上次同步",
+        .syncNever: "从未",
+        .syncNow: "立即同步",
+        .syncDevices: "设备",
+        .syncThisMac: "%@（本机）",
+        .syncLastSeen: "最后在线 %@",
+        .syncConflicts: "本次启动以来保留的冲突版本",
+        .syncErrorFolderMissing: "找不到文件夹：%@。请确认 iCloud 云盘已打开。",
+        .syncErrorNewerFormat: "这个同步文件夹由更新版本的 Perch 写入，请先更新这台 Mac 上的 Perch。",
+        .syncDebugOverride: "调试：正在同步到 PERCH_SYNC_DIR",
         .iCloudSunsetBody: "Perch 现在只把便签保存在这台 Mac 上。之前同步过的内容都已经在本机,没有丢失。\n\n多台 Mac 之间不再互相同步。要把便签带到另一台 Mac:在这台用「管理所有便签 → 数据 → 导出全部便签 (SQLite)…」,再到另一台用「导入全部便签 (SQLite)…」,那台已有的便签会自动跳过。",
 
         .managerSearch: "搜索所有便签",

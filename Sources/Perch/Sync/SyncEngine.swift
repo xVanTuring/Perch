@@ -25,6 +25,8 @@ final class SyncEngine: ObservableObject {
     @Published private(set) var devices: [SyncFolder.DeviceInfo] = []
     /// 本次运行中生成的冲突副本数。
     @Published private(set) var conflictCopiesCreated = 0
+    /// 本机的设备 ID(设备列表里标出「本机」)。同步没在运行时为 nil。
+    @Published private(set) var ownDeviceID: String?
 
     private let context: NSManagedObjectContext
     private weak var registry: FloatingNotesRegistry?
@@ -102,6 +104,7 @@ final class SyncEngine: ObservableObject {
         folder = nil
         state = nil
         identity = nil
+        ownDeviceID = nil
         phase = .off
     }
 
@@ -134,6 +137,7 @@ final class SyncEngine: ObservableObject {
         self.folder = folder
         self.identity = identity
         self.state = state
+        ownDeviceID = identity.deviceID
         clock = HybridLogicalClock(deviceID: identity.deviceID,
                                    millis: state.meta.clockMillis,
                                    counter: state.meta.clockCounter)
