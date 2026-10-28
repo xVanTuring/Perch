@@ -9,6 +9,42 @@
     <language>en</language>
     <!-- BEGIN-ITEMS (release.sh inserts new entries here, newest first) -->
     <item>
+      <title>v2.8.0</title>
+      <pubDate>Wed, 28 Oct 2026 10:35:21 +0000</pubDate>
+      <sparkle:version>23</sparkle:version>
+      <sparkle:shortVersionString>2.8.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <description xml:lang="en"><![CDATA[
+<h4>Changed</h4>
+<ul>
+<li><strong>iCloud sync has been removed</strong> — Perch now keeps notes only on this Mac. If you had sync turned on, nothing is lost: everything that was synced is already stored on each Mac and stays there after the update. From now on your Macs just stop syncing with each other. Perch shows a one-time notice about this on the first launch after updating.</li>
+<li><strong>Moving notes to another Mac</strong> — in Manage All Notes → Data, choose Export All Notes (SQLite)… on one Mac, then Import All Notes (SQLite)… on the other. Notes the other Mac already has are skipped.</li>
+</ul>
+<h4>Fixed</h4>
+<ul>
+<li><strong>Agent connections stay up for days</strong> — the local MCP server for agents (Settings → Agent) no longer becomes unreachable after Perch has been running for a long time or after the Mac wakes from sleep. It also no longer replaces its access token when reading it from the keychain fails, which used to lock out every configured agent until it was set up again.</li>
+<li><strong>Agents now see the short replies from Perch's tools</strong> — confirmations and hints were dropped by Claude Code and never reached the model.</li>
+<li><strong>Stricter check on where requests come from</strong> — requests sent from a web page are now accepted only when the page is on exactly localhost, 127.0.0.1 or ::1. A site whose address merely started with "localhost" used to pass this check (the access token was still required).</li>
+</ul>
+<p><a href="https://github.com/xVanTuring/Perch/releases/tag/v2.8.0">View full release on GitHub →</a></p>
+      ]]></description>
+      <description xml:lang="zh"><![CDATA[
+<h4>变更</h4>
+<ul>
+<li><strong>iCloud 同步已下线</strong> —— Perch 现在只把便签保存在本机。之前开过同步的用户不会丢数据：同步过的内容本来就保存在每台 Mac 上，更新后都还在，只是从现在起多台 Mac 之间不再互相同步。更新后第一次启动会弹一次提示说明这一点。</li>
+<li><strong>把便签带到另一台 Mac</strong> —— 在「管理所有便签 → 数据」里，先在一台 Mac 上选「导出全部便签 (SQLite)…」，再到另一台选「导入全部便签 (SQLite)…」，那台已有的便签会自动跳过。</li>
+</ul>
+<h4>修复</h4>
+<ul>
+<li><strong>Agent 连接可以连续保持好几天</strong> —— 给 Agent 用的本地 MCP 服务（设置 → Agent）在 Perch 长时间运行或 Mac 从睡眠中唤醒后，不会再连不上。从钥匙串读取访问令牌失败时，也不会再换成新的令牌——以前一旦换了，所有已配置的 Agent 都会被拒绝，只能重新配置。</li>
+<li><strong>Agent 能看到工具返回的简短结果了</strong> —— 以前这些确认信息和提示会被 Claude Code 丢掉，模型看不到。</li>
+<li><strong>更严格地检查请求来源</strong> —— 来自网页的请求，现在只有页面地址正好是 localhost、127.0.0.1 或 ::1 才接受。以前地址只要以 localhost 开头的网站也能通过这项检查（不过仍然需要访问令牌）。</li>
+</ul>
+<p><a href="https://github.com/xVanTuring/Perch/releases/tag/v2.8.0">在 GitHub 查看完整更新 →</a></p>
+      ]]></description>
+      <enclosure url="https://github.com/xVanTuring/Perch/releases/download/v2.8.0/Perch-2.8.0.zip" length="9215792" type="application/octet-stream" sparkle:edSignature="RTw4b5tcU3EE4UuX1nDcjPTdBw8cyXNZNUnhy10WGwyJDXPxInuGDbLHvvAlbwYDE1TqOSEH6PMZoP8/47JWDA==" />
+    </item>
+    <item>
       <title>v2.7.1</title>
       <pubDate>Tue, 13 Oct 2026 09:36:49 +0000</pubDate>
       <sparkle:version>22</sparkle:version>
