@@ -1,6 +1,7 @@
 # 用 iCloud Drive 同步(不用 CloudKit)— 设计方案
 
-状态:草案,2026-10-28。还没有任何代码。
+状态:草案,2026-10-28。已完成:合并规则(`Sources/Perch/Sync/Core/`,单元测试在
+`Tests/PerchSyncTests/`);第 10 节的验证程序在 `tools/sync-probe/`。还没接到 App 上。
 
 ## 1. 目标和约束
 
@@ -49,10 +50,10 @@ iCloud Drive/Perch/
   "format": 1,
   "id": "6F1C…",
   "fields": {
-    "content":    { "value": "# 购物清单\n- 牛奶", "hlc": "01730106245123-0002-A1B2" },
-    "colorIndex": { "value": 3,                    "hlc": "01730106001000-0000-A1B2" },
-    "groupID":    { "value": "9D0E…",              "hlc": "01730106001000-0000-A1B2" },
-    "isTrashed":  { "value": false,                "hlc": "01730106001000-0000-A1B2" }
+    "content":    { "value": "# 购物清单\n- 牛奶", "hlc": "00001730106245123-000002-A1B2" },
+    "colorIndex": { "value": 3,                    "hlc": "00001730106001000-000000-A1B2" },
+    "groupID":    { "value": "9D0E…",              "hlc": "00001730106001000-000000-A1B2" },
+    "isTrashed":  { "value": false,                "hlc": "00001730106001000-000000-A1B2" }
   },
   "contentVersion": { "A1B2…": 3, "C3D4…": 1 },
   "deleted": null

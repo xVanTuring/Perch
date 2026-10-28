@@ -130,6 +130,12 @@ targets:
         product: MarkdownEngineCodeBlocks
       - package: MarkdownEngine
         product: MarkdownEngineLatex
+    # 显式声明 scheme(以前靠 Xcode 自动生成):一旦有共享 scheme,Xcode 就不再自动
+    # 生成,release.sh 用的 `-scheme Perch` 会找不到。测试挂在 Test 动作上:
+    # `xcodebuild -scheme Perch test`。
+    scheme:
+      testTargets:
+        - PerchSyncTests
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: tech.xvanturing.Perch
@@ -171,3 +177,18 @@ targets:
         # ⚠️ 首次发布前必须填上,否则 release.sh preflight 会拒绝运行。
         # 一旦发布后**严禁**更换公钥,否则已装版本会拒绝所有未来更新。
         SUPublicEDKey: "g3SCjADYsXhMN5/4hnQZ7eOawvtVoGJJsS5CFew15WQ="
+
+  # 同步核心(Sources/Perch/Sync/Core)的单元测试。不挂在 App 上(没有 TEST_HOST),
+  # 直接把那几个纯逻辑文件编进测试包 —— 跑测试不会启动整个 Perch(菜单栏、MCP 服务、
+  # 浮窗)。所以 Sync/Core 里的文件只能依赖 Foundation / CryptoKit,不能引用 App 的类型。
+  PerchSyncTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - Tests/PerchSyncTests
+      - Sources/Perch/Sync/Core
+    settings:
+      base:
+        PRODUCT_NAME: PerchSyncTests
+        PRODUCT_BUNDLE_IDENTIFIER: tech.xvanturing.PerchSyncTests
+        GENERATE_INFOPLIST_FILE: YES

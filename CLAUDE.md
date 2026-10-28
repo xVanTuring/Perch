@@ -27,6 +27,10 @@ disown
 
 # Quit cleanly (so applicationShouldTerminate runs)
 osascript -e 'tell application "Perch" to quit'
+
+# Unit tests (sync core only, see "Sync" below)
+xcodebuild -project Perch.xcodeproj -scheme Perch -configuration Debug test 2>&1 \
+    | grep -E "error:|Executed|TEST "
 ```
 
 ## Source layout
@@ -46,6 +50,7 @@ Sources/Perch/
 │  ├─ Manager/           # Centralized management window (NavigationSplitView)
 │  └─ Settings/          # NSTabViewController-based settings + SwiftUI tabs
 ├─ MCP/                  # Local MCP server (Agent access to notes) — see docs/mcp.md
+├─ Sync/Core/            # iCloud Drive sync: record format + merge rules (pure, tested)
 └─ Resources/            # Info.plist, entitlements
 ```
 
@@ -84,6 +89,19 @@ comment in `Perch.entitlements`), and **use a new toggle key** instead of
 `SettingsKey.iCloudSyncEnabled` — Macs that used sync still have that key `true`
 and would start syncing the moment they update. Meanwhile keep schema changes
 CloudKit-compatible (rules at the top of `SchemaV1.swift`).
+
+## Sync over iCloud Drive (in progress)
+
+Design: [`docs/icloud-drive-sync.md`](docs/icloud-drive-sync.md) — each Mac writes
+only its own folder, Perch merges per field and turns concurrent body edits into
+conflict-copy notes. Done so far: `Sources/Perch/Sync/Core/` (record format, hybrid
+logical clock, version vector, `SyncMerge`) with tests in `Tests/PerchSyncTests/`.
+Not wired into the app yet. The `PerchSyncTests` target compiles `Sync/Core`
+directly (no test host, so tests don't launch Perch) — **files in `Sync/Core` may
+only use Foundation / CryptoKit**, never app types. Merge results must not depend on
+input order or duplicates; `testResultDoesNotDependOnOrderOrDuplicates` guards that.
+The iCloud Drive behaviours the design relies on are checked by `tools/sync-probe/`
+on two Macs before any file I/O code is written.
 
 ## Schema → CloudKit deployment workflow
 
