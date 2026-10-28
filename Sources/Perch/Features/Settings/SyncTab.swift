@@ -93,8 +93,15 @@ private struct SyncTabContent: View {
                     }
                     HStack {
                         Spacer()
-                        Button(L.t(.syncNow)) { engine.syncNow() }
-                            .disabled(engine.phase != .idle)
+                        if isFailed {
+                            if engine.needsPermission {
+                                Button(L.t(.syncOpenPrivacySettings)) { openPrivacySettings() }
+                            }
+                            Button(L.t(.syncRetry)) { engine.restart() }
+                        } else {
+                            Button(L.t(.syncNow)) { engine.syncNow() }
+                                .disabled(engine.phase != .idle)
+                        }
                     }
                 }
 
@@ -128,6 +135,12 @@ private struct SyncTabContent: View {
         case .idle:                return L.t(.syncStatusIdle)
         case .syncing:             return L.t(.syncStatusSyncing)
         case .failed(let message): return L.t(.syncStatusFailed, message)
+        }
+    }
+
+    private func openPrivacySettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security") {
+            NSWorkspace.shared.open(url)
         }
     }
 

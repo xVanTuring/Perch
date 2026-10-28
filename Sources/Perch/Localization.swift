@@ -178,7 +178,8 @@ enum LocKey: String {
     case syncLastSync, syncNever, syncNow
     case syncDevices, syncThisMac, syncLastSeen
     case syncConflicts
-    case syncErrorFolderMissing, syncErrorNewerFormat
+    case syncErrorFolderMissing, syncErrorNewerFormat, syncErrorNoPermission
+    case syncRetry, syncOpenPrivacySettings
     case syncDebugOverride
 
     // Manager toolbar / sidebar
@@ -474,6 +475,9 @@ enum L {
         .syncConflicts: "Conflicting versions kept since launch",
         .syncErrorFolderMissing: "Folder not found: %@. Make sure iCloud Drive is turned on.",
         .syncErrorNewerFormat: "This sync folder was written by a newer version of Perch. Update Perch on this Mac first.",
+        .syncErrorNoPermission: "Perch isn’t allowed to access iCloud Drive. Allow it in System Settings → Privacy & Security, then click Retry.",
+        .syncRetry: "Retry",
+        .syncOpenPrivacySettings: "Open Privacy & Security",
         .syncDebugOverride: "Debug: syncing into PERCH_SYNC_DIR",
         .iCloudSunsetBody: "Perch now keeps notes only on this Mac. Everything that was synced is already here — nothing was lost.\n\nYour Macs no longer sync with each other. To bring notes to another Mac, use Manage All Notes → Data → Export All Notes (SQLite)… here, then Import All Notes (SQLite)… on the other Mac. Notes it already has are skipped.",
 
@@ -793,6 +797,9 @@ enum L {
         .syncConflicts: "本次启动以来保留的冲突版本",
         .syncErrorFolderMissing: "找不到文件夹：%@。请确认 iCloud 云盘已打开。",
         .syncErrorNewerFormat: "这个同步文件夹由更新版本的 Perch 写入，请先更新这台 Mac 上的 Perch。",
+        .syncErrorNoPermission: "Perch 没有访问 iCloud 云盘的权限。请在「系统设置 → 隐私与安全性」里允许，然后点「重试」。",
+        .syncRetry: "重试",
+        .syncOpenPrivacySettings: "打开「隐私与安全性」",
         .syncDebugOverride: "调试：正在同步到 PERCH_SYNC_DIR",
         .iCloudSunsetBody: "Perch 现在只把便签保存在这台 Mac 上。之前同步过的内容都已经在本机,没有丢失。\n\n多台 Mac 之间不再互相同步。要把便签带到另一台 Mac:在这台用「管理所有便签 → 数据 → 导出全部便签 (SQLite)…」,再到另一台用「导入全部便签 (SQLite)…」,那台已有的便签会自动跳过。",
 

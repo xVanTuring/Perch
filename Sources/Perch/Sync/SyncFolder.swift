@@ -4,10 +4,14 @@ import Foundation
 ///
 /// ```
 /// <根>/format.json
-/// <根>/devices/<设备 ID>/device.json
-/// <根>/devices/<设备 ID>/{groups,notes,images}/<UUID>.json
-/// <根>/blobs/<UUID>.<扩展名>
+/// <根>/<设备 ID>/device.json
+/// <根>/<设备 ID>/{groups,notes,images}/<UUID>.json
+/// <根>/<设备 ID>/blobs/<UUID>.<扩展名>
 /// ```
+///
+/// 根下面没有多台设备共用的文件夹:两台 Mac 同时建同名文件夹时,iCloud 云盘会把其中一个
+/// 改名成「xxx 2」(方案第 10 节),所以每个文件夹都只由它的设备自己建。唯一共用的是根本身,
+/// 它被改名时由 `mergeDuplicateRoots` 挪回来。
 ///
 /// 这里的方法都会碰磁盘(iCloud 云盘上的文件可能要先下载),只在后台队列调用。
 struct SyncFolder {
@@ -43,12 +47,10 @@ struct SyncFolder {
         var lastSeen: Date
     }
 
-    var devicesDirectory: URL { root.appendingPathComponent("devices", isDirectory: true) }
-    var blobsDirectory: URL { root.appendingPathComponent("blobs", isDirectory: true) }
     var formatURL: URL { root.appendingPathComponent("format.json") }
 
     func deviceDirectory(_ device: String) -> URL {
-        devicesDirectory.appendingPathComponent(device, isDirectory: true)
+        root.appendingPathComponent(device, isDirectory: true)
     }
 
     func deviceInfoURL(_ device: String) -> URL {
@@ -61,9 +63,23 @@ struct SyncFolder {
             .appendingPathComponent(id.uuidString + ".json")
     }
 
-    func blobURL(id: UUID, fileExtension: String) -> URL {
+    /// 图片数据放在写它的设备自己的文件夹里。
+    func blobURL(device: String, id: UUID, fileExtension: String) -> URL {
         let ext = fileExtension.isEmpty ? "bin" : fileExtension
-        return blobsDirectory.appendingPathComponent("\(id.uuidString).\(ext)")
+        return deviceDirectory(device)
+            .appendingPathComponent("blobs", isDirectory: true)
+            .appendingPathComponent("\(id.uuidString).\(ext)")
+    }
+
+    /// 找一张图片的数据:先看 `preferred` 设备(图片记录所在的设备),再看其他设备。
+    /// 两台用 CloudKit 同步过的 Mac 都有同一张图片时,两边各存一份,哪份都行。
+    func findBlob(id: UUID, fileExtension: String, preferred: String) -> URL? {
+        let fm = FileManager.default
+        for device in [preferred] + deviceIDs().filter({ $0 != preferred }) {
+            let url = blobURL(device: device, id: id, fileExtension: fileExtension)
+            if fm.fileExists(atPath: url.path) { return url }
+        }
+        return nil
     }
 
     // MARK: - 准备
@@ -71,6 +87,8 @@ struct SyncFolder {
     enum PrepareError: LocalizedError {
         case parentMissing(URL)
         case newerFormat(Int)
+        /// 用户在系统弹窗里拒绝了 Perch 访问 iCloud 云盘(或之后在系统设置里关掉了)。
+        case noPermission
 
         var errorDescription: String? {
             switch self {
@@ -78,16 +96,56 @@ struct SyncFolder {
                 return L.t(.syncErrorFolderMissing, (url.path as NSString).abbreviatingWithTildeInPath)
             case .newerFormat:
                 return L.t(.syncErrorNewerFormat)
+            case .noPermission:
+                return L.t(.syncErrorNoPermission)
             }
         }
+
+        var isPermission: Bool {
+            if case .noPermission = self { return true }
+            return false
+        }
+    }
+
+    /// 没有权限的错误:Cocoa 的读 / 写无权限,或底层的 EPERM / EACCES。
+    static func isPermissionError(_ error: Error) -> Bool {
+        let ns = error as NSError
+        if ns.domain == NSCocoaErrorDomain,
+           ns.code == NSFileReadNoPermissionError || ns.code == NSFileWriteNoPermissionError {
+            return true
+        }
+        if ns.domain == NSPOSIXErrorDomain, ns.code == Int(EPERM) || ns.code == Int(EACCES) {
+            return true
+        }
+        if let underlying = ns.userInfo[NSUnderlyingErrorKey] as? Error {
+            return isPermissionError(underlying)
+        }
+        return false
     }
 
     /// 建好本机设备的目录,写 / 检查 `format.json`。父目录不存在(比如 iCloud 云盘
     /// 没开)时报错,不去建 —— 否则会在本地建出一个永远不同步的文件夹。
     func prepare(device: String) throws {
+        do {
+            try prepareUnchecked(device: device)
+        } catch let error as PrepareError {
+            throw error
+        } catch {
+            throw Self.isPermissionError(error) ? PrepareError.noPermission : error
+        }
+    }
+
+    private func prepareUnchecked(device: String) throws {
         let fm = FileManager.default
         let parent = root.deletingLastPathComponent()
-        guard fm.fileExists(atPath: parent.path) else { throw PrepareError.parentMissing(parent) }
+        // 不能只用 fileExists:没有权限时它也返回 false,会被误报成「iCloud 云盘没打开」。
+        // 真的列一次目录,看错误是「不存在」还是「没权限」。
+        do {
+            _ = try fm.contentsOfDirectory(atPath: parent.path)
+        } catch {
+            if Self.isPermissionError(error) { throw PrepareError.noPermission }
+            throw PrepareError.parentMissing(parent)
+        }
 
         try fm.createDirectory(at: root, withIntermediateDirectories: true)
         if let data = try? Data(contentsOf: formatURL),
@@ -97,11 +155,65 @@ struct SyncFolder {
         } else {
             try write(Data("{\"format\":\(SyncFormat.current)}".utf8), to: formatURL)
         }
-        for kind in Kind.allCases {
-            try fm.createDirectory(at: deviceDirectory(device).appendingPathComponent(kind.rawValue),
+        for sub in Kind.allCases.map(\.rawValue) + ["blobs"] {
+            try fm.createDirectory(at: deviceDirectory(device).appendingPathComponent(sub),
                                    withIntermediateDirectories: true)
         }
-        try fm.createDirectory(at: blobsDirectory, withIntermediateDirectories: true)
+    }
+
+    /// 根被 iCloud 云盘改名的情况:两台 Mac 同时第一次开启同步,各建一个「Perch」,
+    /// 其中一个可能变成「Perch 2」。把旁边「<根名> 2」…「<根名> 9」里的设备文件夹
+    /// 挪回根里;同一台设备的文件夹两边都有时逐个文件挪,两边都有的文件留较新的。
+    /// 只认名字是 UUID 的设备文件夹,别的东西不碰,挪空了才删掉那个多出来的根。
+    func mergeDuplicateRoots() {
+        let fm = FileManager.default
+        let parent = root.deletingLastPathComponent()
+        for n in 2...9 {
+            let duplicate = parent.appendingPathComponent("\(root.lastPathComponent) \(n)", isDirectory: true)
+            guard fm.fileExists(atPath: duplicate.path) else { continue }
+            let devices = Self.deviceFolderNames(in: duplicate)
+            guard !devices.isEmpty else { continue }
+            NSLog("Perch sync: merging %@ back into %@", duplicate.path, root.path)
+            for device in devices {
+                Self.mergeTree(from: duplicate.appendingPathComponent(device),
+                               into: root.appendingPathComponent(device))
+            }
+            let left = ((try? fm.contentsOfDirectory(atPath: duplicate.path)) ?? [])
+                .filter { !$0.hasPrefix(".") && !$0.hasPrefix("format") }
+            if left.isEmpty { try? fm.removeItem(at: duplicate) }
+        }
+    }
+
+    private static func deviceFolderNames(in directory: URL) -> [String] {
+        let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
+        return names.filter { UUID(uuidString: $0) != nil }.sorted()
+    }
+
+    private static func mergeTree(from source: URL, into target: URL) {
+        let fm = FileManager.default
+        guard fm.fileExists(atPath: target.path) else {
+            try? fm.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? fm.moveItem(at: source, to: target)
+            return
+        }
+        for name in (try? fm.contentsOfDirectory(atPath: source.path)) ?? [] where !name.hasPrefix(".") {
+            let from = source.appendingPathComponent(name)
+            let to = target.appendingPathComponent(name)
+            var isDirectory: ObjCBool = false
+            fm.fileExists(atPath: from.path, isDirectory: &isDirectory)
+            if isDirectory.boolValue {
+                mergeTree(from: from, into: to)
+            } else if let existing = stat(to), let incoming = stat(from) {
+                if incoming.mtimeNanos > existing.mtimeNanos {
+                    _ = try? fm.replaceItemAt(to, withItemAt: from)
+                } else {
+                    try? fm.removeItem(at: from)
+                }
+            } else {
+                try? fm.moveItem(at: from, to: to)
+            }
+        }
+        try? fm.removeItem(at: source)
     }
 
     // MARK: - 写
@@ -138,9 +250,10 @@ struct SyncFolder {
         return FileStat(size: Int64(st.st_size), mtimeNanos: nanos)
     }
 
+    /// 根下名字是 UUID 的文件夹都是设备文件夹,别的(format.json、iCloud 云盘生成的
+    /// 「xxx 2」之类)不管。
     func deviceIDs() -> [String] {
-        let names = (try? FileManager.default.contentsOfDirectory(atPath: devicesDirectory.path)) ?? []
-        return names.filter { !$0.hasPrefix(".") }.sorted()
+        Self.deviceFolderNames(in: root)
     }
 
     /// 列出其他设备的全部记录文件(只看大小和修改时间,不触发下载)。
@@ -160,7 +273,7 @@ struct SyncFolder {
                     let url = dir.appendingPathComponent(name)
                     guard let stat = Self.stat(url) else { continue }
                     result.append(RemoteFile(device: device, kind: kind, id: id, url: url, stat: stat,
-                                             relativePath: "devices/\(device)/\(kind.rawValue)/\(name)"))
+                                             relativePath: "\(device)/\(kind.rawValue)/\(name)"))
                 }
             }
         }

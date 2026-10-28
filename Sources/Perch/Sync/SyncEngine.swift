@@ -27,6 +27,8 @@ final class SyncEngine: ObservableObject {
     @Published private(set) var conflictCopiesCreated = 0
     /// 本机的设备 ID(设备列表里标出「本机」)。同步没在运行时为 nil。
     @Published private(set) var ownDeviceID: String?
+    /// 失败原因是没有访问权限:设置页额外给一个打开「隐私与安全性」的按钮。
+    @Published private(set) var needsPermission = false
 
     private let context: NSManagedObjectContext
     private weak var registry: FloatingNotesRegistry?
@@ -66,6 +68,7 @@ final class SyncEngine: ObservableObject {
 
     func start() {
         guard SyncConfig.isEnabled, phase == .off || isFailed else { return }
+        needsPermission = false
         phase = .starting
         generation += 1
         let gen = generation
@@ -80,7 +83,8 @@ final class SyncEngine: ObservableObject {
             DispatchQueue.main.async {
                 guard gen == self.generation else { return }
                 if case .failure(let error) = prepared {
-                    self.fail(error.localizedDescription)
+                    self.fail(error.localizedDescription,
+                              needsPermission: (error as? SyncFolder.PrepareError)?.isPermission ?? false)
                     return
                 }
                 self.begin(folder: folder, identity: identity, state: state)
@@ -127,10 +131,11 @@ final class SyncEngine: ObservableObject {
         return false
     }
 
-    private func fail(_ message: String) {
+    private func fail(_ message: String, needsPermission: Bool = false) {
         NSLog("Perch sync: %@", message)
         stop()
         phase = .failed(message)
+        self.needsPermission = needsPermission
     }
 
     private func begin(folder: SyncFolder, identity: SyncDeviceIdentity, state: SyncLocalState) {
@@ -155,7 +160,7 @@ final class SyncEngine: ObservableObject {
             self, selector: #selector(didWake), name: NSWorkspace.didWakeNotification, object: nil)
         let watcher = SyncFolderWatcher(root: folder.root,
                                         ignoring: folder.deviceDirectory(identity.deviceID)) { [weak self] in
-            self?.scheduleImport(after: 1.0)
+            self?.scheduleImport(after: 1.0, reason: "folder changed")
         }
         watcher.start()
         self.watcher = watcher
@@ -251,14 +256,14 @@ final class SyncEngine: ObservableObject {
     }
 
     private func export(_ image: NoteImage) {
-        guard let id = image.id, let folder else { return }
+        guard let id = image.id, let folder, let identity else { return }
         let isNew = state?[.init(kind: .images, id: id)] == nil
         exportRecord(.images, id: id, values: SyncCoreDataAdapter.fields(of: image),
                      historical: SyncCoreDataAdapter.historicalDate(of: image))
-        // 图片本身只由第一个导出它的设备写一次。已经存在(别的设备写过,哪怕还只在云端)
-        // 就不写:两台都写同一个文件,iCloud 云盘就要处理冲突了。
+        // 图片数据写进本机自己的文件夹,只在第一次导出时写一次。从别的设备收到的图片
+        // 不会走到这里(导入后本地值和 base 一样,不导出)。
         guard isNew, let data = image.data else { return }
-        let url = folder.blobURL(id: id, fileExtension: image.fileExtension)
+        let url = folder.blobURL(device: identity.deviceID, id: id, fileExtension: image.fileExtension)
         io.async {
             guard !FileManager.default.fileExists(atPath: url.path) else { return }
             do { try folder.write(data, to: url) } catch { NSLog("Perch sync: blob write failed: %@", "\(error)") }
@@ -308,7 +313,7 @@ final class SyncEngine: ObservableObject {
     /// 只处理在本机真正存在过的记录(`base` 不空):图片的数据还没下载下来、所以本地
     /// 没建出来的,不能当成删除 —— 否则会把它在所有设备上删掉。
     private func exportLocalDeletions() {
-        guard let state, let folder else { return }
+        guard let state, let folder, let identity else { return }
         let local: [SyncFolder.Kind: Set<UUID>] = [
             .notes: Set(fetchAll(Note.self).map(\.id)),
             .groups: Set(fetchAll(NoteGroup.self).map(\.id)),
@@ -329,7 +334,8 @@ final class SyncEngine: ObservableObject {
                 }
                 writeOwnRecord(key)
                 if kind == .images, let blobExtension {
-                    let url = folder.blobURL(id: key.id, fileExtension: blobExtension)
+                    let url = folder.blobURL(device: identity.deviceID, id: key.id,
+                                             fileExtension: blobExtension)
                     io.async { folder.remove(url) }
                 }
             }
@@ -379,8 +385,9 @@ final class SyncEngine: ObservableObject {
 
     func syncNow() { scheduleImport(after: 0) }
 
-    private func scheduleImport(after delay: TimeInterval) {
+    private func scheduleImport(after delay: TimeInterval, reason: String = "") {
         guard state != nil else { return }
+        if !reason.isEmpty { NSLog("Perch sync: import requested (%@)", reason) }
         importWork?.cancel()
         let work = DispatchWorkItem { [weak self] in self?.runImport() }
         importWork = work
@@ -407,6 +414,7 @@ final class SyncEngine: ObservableObject {
         let me = identity.deviceID
 
         io.async {
+            folder.mergeDuplicateRoots()
             let files = folder.scanRemoteFiles(excluding: me)
             let present = Set(files.map(\.relativePath))
             let changed = files.filter { knownStats[$0.relativePath] != $0.stat }
@@ -426,7 +434,8 @@ final class SyncEngine: ObservableObject {
                 var blob: Data?
                 if file.kind == .images, record.deleted == nil,
                    let ext = record.fields[SyncFieldName.fileExtension]?.value.stringValue {
-                    blob = try? Data(contentsOf: folder.blobURL(id: file.id, fileExtension: ext))
+                    blob = folder.findBlob(id: file.id, fileExtension: ext, preferred: file.device)
+                        .flatMap { try? Data(contentsOf: $0) }
                 }
                 decoded.append(DecodedFile(file: file, record: record, blob: blob))
             }
@@ -446,6 +455,9 @@ final class SyncEngine: ObservableObject {
                              deviceInfos: [String: SyncFolder.DeviceInfo]) {
         guard let state, let identity else { return }
         devices = deviceInfos.values.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        if !decoded.isEmpty || !removed.isEmpty {
+            NSLog("Perch sync: import — %d changed file(s), %d removed", decoded.count, removed.count)
+        }
 
         var affected = Set<SyncLocalState.Key>()
         var blobs: [UUID: Data] = [:]
@@ -462,12 +474,12 @@ final class SyncEngine: ObservableObject {
             if let deleted = item.record.deleted { clock.observe(deleted) }
         }
         for path in removed {
-            // devices/<设备>/<kind>/<UUID>.json
+            // <设备>/<kind>/<UUID>.json
             let parts = path.split(separator: "/")
-            guard parts.count == 4, let kind = SyncFolder.Kind(rawValue: String(parts[2])),
-                  let id = UUID(uuidString: String(parts[3].dropLast(5))) else { continue }
+            guard parts.count == 3, let kind = SyncFolder.Kind(rawValue: String(parts[1])),
+                  let id = UUID(uuidString: String(parts[2].dropLast(5))) else { continue }
             let key = SyncLocalState.Key(kind: kind, id: id)
-            state.update(key) { $0.remote[String(parts[1])] = nil }
+            state.update(key) { $0.remote[String(parts[0])] = nil }
             affected.insert(key)
             state.meta.remoteStats[path] = nil
         }
@@ -576,7 +588,15 @@ final class SyncEngine: ObservableObject {
     private func applyImage(_ result: MergedRecord, blob: Data?) -> Bool {
         let existing = fetch(NoteImage.self, result.id)
         if result.isDeleted {
-            if let existing { context.delete(existing) }
+            if let existing {
+                // 本机文件夹里如果也存了一份数据(用 CloudKit 同步过的图片两边都有),一起删掉。
+                if let folder, let identity {
+                    let url = folder.blobURL(device: identity.deviceID, id: result.id,
+                                             fileExtension: existing.fileExtension)
+                    io.async { folder.remove(url) }
+                }
+                context.delete(existing)
+            }
             return true
         }
         if let existing {
