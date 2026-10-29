@@ -9,6 +9,44 @@
     <language>en</language>
     <!-- BEGIN-ITEMS (release.sh inserts new entries here, newest first) -->
     <item>
+      <title>v2.9.0</title>
+      <pubDate>Thu, 29 Oct 2026 14:28:46 +0000</pubDate>
+      <sparkle:version>28</sparkle:version>
+      <sparkle:shortVersionString>2.9.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <description xml:lang="en"><![CDATA[
+<h4>New</h4>
+<ul>
+<li><strong>Sync through iCloud Drive (optional)</strong> — turn it on in Settings → Sync on each Mac. Notes, groups, images, and Trash and Archive status stay in sync through a folder in iCloud Drive (iCloud Drive/Perch). A change usually shows up on your other Macs within about ten seconds. Sticky window positions and which notes are open stay separate on each Mac. Nothing syncs unless you turn it on.</li>
+<li>The first time, macOS asks whether Perch may access files in iCloud Drive — click Allow. A folder kept in sync by another app, such as Dropbox or Syncthing, also works; every Mac must use the same folder.</li>
+<li><strong>Conflicts never lose text</strong> — if the same note is changed on two Macs at once, the newer version stays in the note and the other is kept as a separate note in the “Sync conflicts” group. Select it in Manage All Notes and click Compare Versions to see both side by side and choose which one to keep.</li>
+<li><strong>Remove a Mac you no longer use</strong> — from the list of Macs in Settings → Sync. This Mac first takes over everything that Mac synced, so no notes are lost.</li>
+<li>If you used the old iCloud sync (before 2.8.0), notes that differ between your Macs become conflict copies when you turn on the new sync — nothing is overwritten.</li>
+</ul>
+<h4>Changed</h4>
+<ul>
+<li>When sync is on, Clear All Content now warns that the notes will also be deleted on your other Macs.</li>
+</ul>
+<p><a href="https://github.com/xVanTuring/Perch/releases/tag/v2.9.0">View full release on GitHub →</a></p>
+      ]]></description>
+      <description xml:lang="zh"><![CDATA[
+<h4>新功能</h4>
+<ul>
+<li><strong>通过 iCloud 云盘同步（可选）</strong> —— 在每台 Mac 的「设置 → 同步」里打开。便签、分组、图片，以及回收站和归档状态，会通过 iCloud 云盘里的一个文件夹（iCloud 云盘/Perch）同步，修改通常十秒内就会出现在其他 Mac 上。浮窗的位置大小、哪些便签打开着，仍然每台 Mac 各自保存。不打开就不会同步。</li>
+<li>第一次打开时，macOS 会询问是否允许 Perch 访问 iCloud 云盘里的文件，点「允许」即可。也可以选由其他同步工具（如 Dropbox、Syncthing）管理的文件夹，所有 Mac 要选同一个。</li>
+<li><strong>冲突不会丢内容</strong> —— 同一条便签在两台 Mac 上同时被修改时，较新的一版留在原便签里，另一版另存为一条便签，放进「同步冲突」分组。在「管理所有便签」里选中它，点「对比冲突版本」，可以左右对比，选一个保留。</li>
+<li><strong>移除不再使用的 Mac</strong> —— 在「设置 → 同步」的设备列表里。这台 Mac 会先接管那台同步过的全部内容，便签不会丢。</li>
+<li>2.8.0 之前用过旧的 iCloud 同步的话，打开新的同步后，两台 Mac 上内容不同的便签会成为冲突副本，不会被覆盖。</li>
+</ul>
+<h4>变更</h4>
+<ul>
+<li>开着同步时，「清空全部内容」的确认框会提示：其他 Mac 上的这些便签也会一起被删除。</li>
+</ul>
+<p><a href="https://github.com/xVanTuring/Perch/releases/tag/v2.9.0">在 GitHub 查看完整更新 →</a></p>
+      ]]></description>
+      <enclosure url="https://github.com/xVanTuring/Perch/releases/download/v2.9.0/Perch-2.9.0.zip" length="9589988" type="application/octet-stream" sparkle:edSignature="XUp6fZzTJ6f4cdsbeQvBYiG70r7YQUjpQYzX3MkFI7p667ePjx+F35E1z+1ymS94J4Me85Ucf/fdzZ5yaspjAg==" />
+    </item>
+    <item>
       <title>v2.8.0</title>
       <pubDate>Wed, 28 Oct 2026 10:35:21 +0000</pubDate>
       <sparkle:version>23</sparkle:version>
