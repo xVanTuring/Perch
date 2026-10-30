@@ -127,6 +127,9 @@ struct HoverToolbar: View {
     /// 当前 note 的 reminderDate(可能 nil / 过去 / 未来)。决定铃铛是 outline
     /// 还是 fill,以及是否「无 hover 也常驻显示」(已设提醒时铃铛是状态标记)。
     let reminderDate: Date?
+    /// 这条便签的同步状态,画在铃铛左边(StickySyncIndicator 自己观察它,
+    /// 状态变化只重绘那个图标)。
+    let syncStatus: NoteSyncStatus
     /// 当前(展开)窗口尺寸,用来在尺寸行里高亮命中的预设。nil = 没有存档尺寸,
     /// 不高亮任何预设。
     let currentSize: NSSize?
@@ -169,6 +172,10 @@ struct HoverToolbar: View {
                 .opacity(buttonsVisible ? 1 : 0)
 
                 Spacer()
+
+                // 同步状态:正在发出去 / 出错时常驻,发完闪一下「已同步」,hover 时随时可看。
+                StickySyncIndicator(status: syncStatus, hovering: buttonsVisible)
+                    .background(NonDraggable())
 
                 // 铃铛:hover 时和「已设提醒」时都显示。fill 图标 + 强调色 = 设了。
                 // outline + 默认色 = 没设(只在 hover 期间出现)。

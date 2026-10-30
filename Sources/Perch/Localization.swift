@@ -186,6 +186,9 @@ enum LocKey: String {
     case syncRemoveDevice, syncRemoveDeviceTitle, syncRemoveDeviceMessage, syncRemoveDeviceConfirm
     case syncConflictCompare, syncConflictTitle, syncConflictExplain, syncConflictOther, syncConflictCurrent
     case syncConflictOriginalGone, syncConflictUseOther, syncConflictKeepCurrent, syncConflictKeepAsNote, syncConflictFooter
+    // 每条便签的同步状态(浮窗铃铛左边、管理窗口工具栏,见 NoteSyncStatusViews)
+    case noteSyncStarting, noteSyncPending, noteSyncPendingDetail, noteSyncUploading, noteSyncUploadingDetail
+    case noteSyncSynced, noteSyncSyncedICloud, noteSyncSyncedFolder, noteSyncFailed, noteSyncLastSynced
 
     // Manager toolbar / sidebar
     case managerSearch, managerNewGroup, managerNewNote
@@ -504,6 +507,16 @@ enum L {
         .syncConflictKeepCurrent: "Keep Current",
         .syncConflictKeepAsNote: "Keep as a Normal Note",
         .syncConflictFooter: "Either way, this conflict copy is moved to Trash.",
+        .noteSyncStarting: "Sync is starting…",
+        .noteSyncPending: "Waiting to sync",
+        .noteSyncPendingDetail: "Changed just now. It goes to the sync folder in a few seconds.",
+        .noteSyncUploading: "Uploading to iCloud Drive",
+        .noteSyncUploadingDetail: "Saved to the sync folder. Your other Macs receive it a few seconds after the upload finishes. If it stays here, check that this Mac is online.",
+        .noteSyncSynced: "Synced",
+        .noteSyncSyncedICloud: "Uploaded to iCloud Drive. Your other Macs receive it automatically.",
+        .noteSyncSyncedFolder: "Saved to the sync folder. The app that syncs that folder sends it to your other Macs.",
+        .noteSyncFailed: "Sync error",
+        .noteSyncLastSynced: "Last synced %@",
         .iCloudSunsetBody: "Perch now keeps notes only on this Mac. Everything that was synced is already here — nothing was lost.\n\nYour Macs no longer sync with each other. To bring notes to another Mac, use Manage All Notes → Data → Export All Notes (SQLite)… here, then Import All Notes (SQLite)… on the other Mac. Notes it already has are skipped.",
 
         .managerSearch: "Search all notes",
@@ -846,6 +859,16 @@ enum L {
         .syncConflictKeepCurrent: "保留现在的",
         .syncConflictKeepAsNote: "作为普通便签保留",
         .syncConflictFooter: "无论选哪个，这条冲突副本都会移进回收站。",
+        .noteSyncStarting: "同步正在启动…",
+        .noteSyncPending: "等待同步",
+        .noteSyncPendingDetail: "刚改过，几秒后写入同步文件夹。",
+        .noteSyncUploading: "正在上传到 iCloud 云盘",
+        .noteSyncUploadingDetail: "已写入同步文件夹，上传完成后其他 Mac 几秒内就会收到。如果一直停在这里，请检查这台 Mac 是否联网。",
+        .noteSyncSynced: "已同步",
+        .noteSyncSyncedICloud: "已上传到 iCloud 云盘，其他 Mac 会自动收到。",
+        .noteSyncSyncedFolder: "已写入同步文件夹，由管理这个文件夹的同步工具发送到其他 Mac。",
+        .noteSyncFailed: "同步出错",
+        .noteSyncLastSynced: "上次同步：%@",
         .iCloudSunsetBody: "Perch 现在只把便签保存在这台 Mac 上。之前同步过的内容都已经在本机,没有丢失。\n\n多台 Mac 之间不再互相同步。要把便签带到另一台 Mac:在这台用「管理所有便签 → 数据 → 导出全部便签 (SQLite)…」,再到另一台用「导入全部便签 (SQLite)…」,那台已有的便签会自动跳过。",
 
         .managerSearch: "搜索所有便签",

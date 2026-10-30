@@ -20,7 +20,9 @@ final class SyncEngine: ObservableObject {
         case failed(String)
     }
 
-    @Published private(set) var phase: Phase = .off
+    @Published private(set) var phase: Phase = .off {
+        didSet { if phase != oldValue { setNeedsStatusRefresh() } }
+    }
     @Published private(set) var lastSyncAt: Date?
     @Published private(set) var devices: [SyncFolder.DeviceInfo] = []
     /// 本次运行中生成的冲突副本数。
@@ -55,6 +57,25 @@ final class SyncEngine: ObservableObject {
     private var showFirstSyncSummary = false
     /// 第一次导入期间从别的 Mac 新建到本机的便签数。
     private var notesReceived = 0
+
+    // 每条便签的同步进度(NoteSyncStatus)。
+    /// 本机改过同步的字段、还没导出的记录。挪浮窗之类只存本机的修改不算。
+    private var unexportedKeys: Set<SyncLocalState.Key> = []
+    /// 已交给 io 队列、还没写完的文件数。
+    private var writesInFlight: [SyncLocalState.Key: Int] = [:]
+    /// 写好了、等 iCloud 云盘上传完的文件。
+    private var awaitingUpload: [SyncLocalState.Key: Set<URL>] = [:]
+    private var writeErrors: [SyncLocalState.Key: String] = [:]
+    private var uploadErrors: [SyncLocalState.Key: String] = [:]
+    /// 本次运行中最后一次发出 / 收到的时间。
+    private var lastTransferAt: [SyncLocalState.Key: Date] = [:]
+    private var folderInICloudDrive = false
+    private var statusRefreshScheduled = false
+    private var uploadPollWork: DispatchWorkItem?
+    private var uploadPollInFlight = false
+    private var uploadPollRound = 0
+    /// 查上传状态单独一个队列:`io` 上的一次导入可能要下载几十秒,不能让它挡着。
+    private let statusQueue = DispatchQueue(label: "tech.xvanturing.Perch.sync.status", qos: .utility)
 
     private init(context: NSManagedObjectContext, registry: FloatingNotesRegistry) {
         self.context = context
@@ -110,6 +131,14 @@ final class SyncEngine: ObservableObject {
         exportWork?.cancel()
         importWork?.cancel()
         importInFlight = false
+        unexportedKeys.removeAll()
+        writesInFlight.removeAll()
+        awaitingUpload.removeAll()
+        writeErrors.removeAll()
+        uploadErrors.removeAll()
+        uploadPollWork?.cancel()
+        uploadPollWork = nil
+        uploadPollInFlight = false
         folder = nil
         state = nil
         identity = nil
@@ -148,6 +177,7 @@ final class SyncEngine: ObservableObject {
         self.identity = identity
         self.state = state
         ownDeviceID = identity.deviceID
+        folderInICloudDrive = SyncConfig.usesICloudDrive
         // 同步状态是空的 = 这个数据目录从没同步过(刚在设置里打开)。
         showFirstSyncSummary = state.records.isEmpty
         notesReceived = 0
@@ -208,10 +238,15 @@ final class SyncEngine: ObservableObject {
             for objectID in changedIDs {
                 guard let object = try? self.context.existingObject(with: objectID) else { continue }
                 switch object {
-                case let note as Note:       self.pendingIDs[.notes, default: []].insert(note.id)
+                case let note as Note:
+                    self.pendingIDs[.notes, default: []].insert(note.id)
+                    self.noteUnexported(.notes, note.id, self.exportValues(of: note))
                 case let group as NoteGroup: self.pendingIDs[.groups, default: []].insert(group.id)
                 case let image as NoteImage:
-                    if let id = image.id { self.pendingIDs[.images, default: []].insert(id) }
+                    if let id = image.id {
+                        self.pendingIDs[.images, default: []].insert(id)
+                        self.noteUnexported(.images, id, SyncCoreDataAdapter.fields(of: image))
+                    }
                 default: break
                 }
             }
@@ -233,6 +268,11 @@ final class SyncEngine: ObservableObject {
         let deletionScan = pendingDeletionScan
         pendingIDs = [:]
         pendingDeletionScan = false
+        // 下面的导出要么写文件(写的过程算进 writesInFlight),要么发现没有要写的。
+        if !unexportedKeys.isEmpty {
+            unexportedKeys.removeAll()
+            setNeedsStatusRefresh()
+        }
         for id in ids[.groups] ?? [] { if let g = fetch(NoteGroup.self, id) { export(g) } }
         for id in ids[.images] ?? [] { if let i = fetch(NoteImage.self, id) { export(i) } }
         for id in ids[.notes] ?? [] { if let n = fetch(Note.self, id) { export(n) } }
@@ -251,6 +291,11 @@ final class SyncEngine: ObservableObject {
     }
 
     private func export(_ note: Note) {
+        exportRecord(.notes, id: note.id, values: exportValues(of: note),
+                     historical: SyncCoreDataAdapter.historicalDate(of: note))
+    }
+
+    private func exportValues(of note: Note) -> [String: SyncValue] {
         var values = SyncCoreDataAdapter.fields(of: note)
         // 笔记先到、它的分组还没到时,本地只能是未分组。这不是本机的修改,不能写出去 ——
         // 否则会把所有设备上的这条笔记都移出分组。分组到了以后 relinkNotes 会放回去。
@@ -260,8 +305,18 @@ final class SyncEngine: ObservableObject {
            fetch(NoteGroup.self, wanted) == nil {
             values[SyncFieldName.groupID] = .uuid(wanted)
         }
-        exportRecord(.notes, id: note.id, values: values,
-                     historical: SyncCoreDataAdapter.historicalDate(of: note))
+        return values
+    }
+
+    /// 保存时:同步的字段和上次合并结果不一样(导出时会写文件),就记成「待同步」。
+    /// 判断和 `exportRecord` 一致。
+    private func noteUnexported(_ kind: SyncFolder.Kind, _ id: UUID, _ values: [String: SyncValue]) {
+        let key = SyncLocalState.Key(kind: kind, id: id)
+        let base = state?[key]?.base ?? [:]
+        guard !unexportedKeys.contains(key),
+              values.contains(where: { name, value in (base[name]?.value ?? .null) != value }) else { return }
+        unexportedKeys.insert(key)
+        setNeedsStatusRefresh()
     }
 
     private func export(_ group: NoteGroup) {
@@ -277,10 +332,19 @@ final class SyncEngine: ObservableObject {
         // 图片数据写进本机自己的文件夹,只在第一次导出时写一次。从别的设备收到的图片
         // 不会走到这里(导入后本地值和 base 一样,不导出)。
         guard isNew, let data = image.data else { return }
+        let key = SyncLocalState.Key(kind: .images, id: id)
         let url = folder.blobURL(device: identity.deviceID, id: id, fileExtension: image.fileExtension)
+        let gen = generation
+        beginWrite(key)
         io.async {
-            guard !FileManager.default.fileExists(atPath: url.path) else { return }
-            do { try folder.write(data, to: url) } catch { NSLog("Perch sync: blob write failed: %@", "\(error)") }
+            var failure: String?
+            if !FileManager.default.fileExists(atPath: url.path) {
+                do { try folder.write(data, to: url) } catch {
+                    NSLog("Perch sync: blob write failed: %@", "\(error)")
+                    failure = error.localizedDescription
+                }
+            }
+            DispatchQueue.main.async { self.endWrite(key, url: url, error: failure, generation: gen) }
         }
     }
 
@@ -373,19 +437,27 @@ final class SyncEngine: ObservableObject {
         let previous = state[key]?.ownFileName
         state.update(key) { $0.ownFileName = name }
         let dir = folder.recordDirectory(device: identity.deviceID, kind: key.kind)
+        let url = dir.appendingPathComponent(name)
+        let gen = generation
+        // 上一个版本文件马上要删掉,不用再等它上传。
+        beginWrite(key, replacing: previous.map { dir.appendingPathComponent($0) })
         io.async {
+            var failure: String?
             do {
-                try folder.write(data, to: dir.appendingPathComponent(name))
+                try folder.write(data, to: url)
                 if let previous, previous != name { folder.remove(dir.appendingPathComponent(previous)) }
             } catch {
                 NSLog("Perch sync: write failed %@/%@: %@", dir.path, name, "\(error)")
+                failure = error.localizedDescription
             }
+            DispatchQueue.main.async { self.endWrite(key, url: url, error: failure, generation: gen) }
         }
     }
 
     private func removeOwnRecordFile(_ key: SyncLocalState.Key) {
         guard let state, let folder, let identity, let name = state[key]?.ownFileName else { return }
         state.update(key) { $0.ownFileName = nil }
+        awaitingUpload[key] = nil
         let url = folder.recordDirectory(device: identity.deviceID, kind: key.kind).appendingPathComponent(name)
         io.async { folder.remove(url) }
     }
@@ -637,8 +709,10 @@ final class SyncEngine: ObservableObject {
                 }
                 if dropOwn { removeOwnRecordFile(key) }
                 if key.kind == .notes { createConflictCopies(result.conflictCopies) }
+                lastTransferAt[key] = Date()
             }
         }
+        if !merged.isEmpty { setNeedsStatusRefresh() }
         relinkNotes(toNewGroups: Set(fetchAll(NoteGroup.self).map(\.id)).subtracting(groupsBefore))
         if context.hasChanges {
             do { try context.save() } catch { NSLog("Perch sync: save failed: %@", "\(error)") }
@@ -835,6 +909,166 @@ final class SyncEngine: ObservableObject {
             s.base = record.fields
         }
         writeOwnRecord(key)
+    }
+
+    // MARK: - 每条便签的同步进度
+
+    /// 算出一条便签此刻的同步状态,写进状态对象。`NoteSyncStatus.of` 新建对象时也调。
+    func refresh(_ status: NoteSyncStatus) {
+        guard let note = status.note, !note.isDeleted, note.managedObjectContext != nil else { return }
+        let state = syncState(of: note)
+        status.update(state: state,
+                      lastSyncedAt: lastTransferAt[.init(kind: .notes, id: note.id)],
+                      usesICloudDrive: folderInICloudDrive)
+        if state == .uploading { requestUploadPoll(reset: false) }
+    }
+
+    /// 便签自己的记录,加上正文里引用的图片:哪个出错就是出错,哪个没写完就是待同步,
+    /// 都写完了还有没上传完的就是上传中。
+    private func syncState(of note: Note) -> NoteSyncStatus.State? {
+        switch phase {
+        case .off, .starting: return nil
+        case .failed(let message): return .failed(message)
+        case .idle, .syncing: break
+        }
+        var result = NoteSyncStatus.State.synced
+        for key in statusKeys(of: note) {
+            if let error = writeErrors[key] ?? uploadErrors[key] { return .failed(error) }
+            if unexportedKeys.contains(key) || writesInFlight[key] != nil {
+                result = .pending
+            } else if result == .synced, !(awaitingUpload[key]?.isEmpty ?? true) {
+                result = .uploading
+            }
+        }
+        return result
+    }
+
+    private func statusKeys(of note: Note) -> [SyncLocalState.Key] {
+        [SyncLocalState.Key(kind: .notes, id: note.id)]
+            + NoteImageStore.referencedImageIDs(in: note.content).map { .init(kind: .images, id: $0) }
+    }
+
+    /// 一次保存、一次导入可能动到很多记录:合成一次,下一拍再刷新界面上的状态。
+    private func setNeedsStatusRefresh() {
+        guard !statusRefreshScheduled else { return }
+        statusRefreshScheduled = true
+        DispatchQueue.main.async {
+            self.statusRefreshScheduled = false
+            for status in NoteSyncStatus.allLive { self.refresh(status) }
+        }
+    }
+
+    private func beginWrite(_ key: SyncLocalState.Key, replacing previous: URL? = nil) {
+        writesInFlight[key, default: 0] += 1
+        if let previous { awaitingUpload[key]?.remove(previous) }
+        setNeedsStatusRefresh()
+    }
+
+    private func endWrite(_ key: SyncLocalState.Key, url: URL, error: String?, generation gen: Int) {
+        guard gen == generation else { return }
+        let left = (writesInFlight[key] ?? 1) - 1
+        writesInFlight[key] = left > 0 ? left : nil
+        if let error {
+            writeErrors[key] = error
+        } else {
+            writeErrors[key] = nil
+            if folderInICloudDrive {
+                awaitingUpload[key, default: []].insert(url)
+                requestUploadPoll(reset: true)
+            } else {
+                // 别的同步工具管的文件夹:它什么时候传出去本机不知道,写进去就算发出了。
+                lastTransferAt[key] = Date()
+            }
+        }
+        setNeedsStatusRefresh()
+    }
+
+    /// 要查上传状态的文件:只查界面上正显示着的便签。查一个文件约 1.6 毫秒,第一次开启
+    /// 同步时可能有上千个文件在等上传;没人看的先留着,打开它的浮窗或在管理窗口选中时再查。
+    private func watchedUploads() -> Set<URL> {
+        var urls = Set<URL>()
+        for status in NoteSyncStatus.allLive {
+            guard let note = status.note, !note.isDeleted, note.managedObjectContext != nil else { continue }
+            for key in statusKeys(of: note) { urls.formUnion(awaitingUpload[key] ?? []) }
+        }
+        return urls
+    }
+
+    /// 刚写完文件时每秒查一次;一直没传完(比如没联网)就慢慢放慢,最慢 10 秒一次。
+    private func requestUploadPoll(reset: Bool) {
+        if reset {
+            uploadPollRound = 0
+            uploadPollWork?.cancel()
+            uploadPollWork = nil
+        }
+        guard uploadPollWork == nil, !uploadPollInFlight else { return }
+        let delay: TimeInterval = uploadPollRound < 10 ? 1 : (uploadPollRound < 30 ? 3 : 10)
+        let work = DispatchWorkItem { [weak self] in
+            self?.uploadPollWork = nil
+            self?.pollUploads()
+        }
+        uploadPollWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+    }
+
+    private enum UploadCheck {
+        case done
+        case waiting
+        case failed(String)
+    }
+
+    private func pollUploads() {
+        let urls = watchedUploads()
+        guard !urls.isEmpty else { return }
+        uploadPollInFlight = true
+        uploadPollRound += 1
+        let gen = generation
+        statusQueue.async {
+            var results: [URL: UploadCheck] = [:]
+            for url in urls { results[url] = Self.checkUpload(url) }
+            DispatchQueue.main.async {
+                guard gen == self.generation else { return }
+                self.uploadPollInFlight = false
+                self.applyUploadChecks(results)
+            }
+        }
+    }
+
+    /// 每次用新的 URL 对象读:同一个 URL 对象会缓存旧的资源值(方案第 6 节)。
+    private static func checkUpload(_ url: URL) -> UploadCheck {
+        let fresh = URL(fileURLWithPath: url.path)
+        let keys: Set<URLResourceKey> = [.isUbiquitousItemKey, .ubiquitousItemIsUploadedKey,
+                                         .ubiquitousItemUploadingErrorKey]
+        // 读不到:文件已经不在了(又改了一次,换成了新的版本文件),不用再等它。
+        guard let values = try? fresh.resourceValues(forKeys: keys) else { return .done }
+        if let error = values.ubiquitousItemUploadingError { return .failed(error.localizedDescription) }
+        if values.isUbiquitousItem != true { return .done }
+        return values.ubiquitousItemIsUploaded == true ? .done : .waiting
+    }
+
+    private func applyUploadChecks(_ results: [URL: UploadCheck]) {
+        // 这一轮没查到的(没有界面在显示)原样留着。
+        for (key, urls) in awaitingUpload where urls.contains(where: { results[$0] != nil }) {
+            var remaining = urls
+            var error: String?
+            for url in urls {
+                switch results[url] {
+                case .done: remaining.remove(url)
+                case .failed(let message): error = message
+                case .waiting, nil: break
+                }
+            }
+            guard remaining != urls || uploadErrors[key] != error else { continue }
+            uploadErrors[key] = error
+            if remaining.isEmpty {
+                awaitingUpload[key] = nil
+                lastTransferAt[key] = Date()
+            } else {
+                awaitingUpload[key] = remaining
+            }
+        }
+        setNeedsStatusRefresh()
+        if !watchedUploads().isEmpty { requestUploadPoll(reset: false) }
     }
 
     // MARK: - Core Data

@@ -59,6 +59,9 @@ struct ManagerView: View {
     @State private var showNoteImages = false
     /// 冲突对比窗口的开关(选中的是同步冲突副本时 toolbar 上出现)。
     @State private var comparingConflict = false
+    /// 同步开着才在工具栏显示选中便签的同步状态。用 @AppStorage 是为了在设置里
+    /// 开关同步时工具栏跟着变。
+    @AppStorage(SettingsKey.syncEnabled) private var syncEnabled = false
     @ObservedObject private var loc = LocalizationManager.shared
 
     /// 当前单选中的笔记。多选 / 无选 / 在回收站等视图里都是 nil ——
@@ -123,6 +126,13 @@ struct ManagerView: View {
                     Label(L.t(.managerNewGroup), systemImage: "folder.badge.plus")
                 }
                 .help(L.t(.managerNewGroup))
+            }
+            // 选中便签的同步状态(本机的修改有没有发出去),点开看说明。
+            if let note = selectedNote, syncEnabled || SyncConfig.debugFolderOverride != nil {
+                ToolbarItem(placement: .primaryAction) {
+                    NoteSyncToolbarButton(status: NoteSyncStatus.of(note))
+                        .id(note.id)
+                }
             }
             // 选中笔记的图片面板。图片和正文里的引用是两回事 —— 引用删掉、
             // 改坏、被 undo 吃掉,图片本身都还在库里(清理只发生在便签被永久

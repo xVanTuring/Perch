@@ -142,6 +142,7 @@ struct FloatingNoteView: View {
                 isCollapsed: note.isCollapsed,
                 stripHeight: stripHeight,
                 reminderDate: note.reminderDate,
+                syncStatus: NoteSyncStatus.of(note),
                 currentSize: currentSize,
                 onClose: onClose,
                 onPickColor: { picked in

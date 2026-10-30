@@ -116,6 +116,13 @@ the old CloudKit `iCloudSyncEnabled`). Folder defaults to iCloud Drive/Perch.
   its own `blobs/`); a Mac joining later would otherwise never get them.
 - Editing a note this Mac knows is trashed re-stamps isTrashed with the body's timestamp,
   else the edit-after-trash rule restores it on the other Macs only.
+- **Per-note sync status** (`Sync/NoteSyncStatus.swift`, views in `Features/Notes/
+  NoteSyncStatusViews.swift`): pending (synced fields differ from `base`, or a write is on
+  `io`) → uploading (file written, `ubiquitousItemIsUploaded` still false) → synced; covers
+  the note record plus images its text references. Shown left of the sticky's bell (stays
+  while in progress / failed, shows "synced" for 2.5 s, otherwise only on hover) and in the
+  Manager toolbar. Upload status costs ~1.6 ms per file, so only notes some view is showing
+  are polled (`NoteSyncStatus.allLive`, weak) — don't poll every awaiting file.
 - Test hooks (DEBUG only): `PERCH_DATA_DIR` (own store, lock, sync state — runs next to
   the real instance), `PERCH_SYNC_DIR` (folder, forces sync on), `PERCH_DEMO_DATA=1`,
   `PERCH_SYNC_QUIET=1` (no first-sync alert), `PERCH_SYNC_REMOVE_DEVICE=<id>`.
