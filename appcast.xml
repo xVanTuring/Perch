@@ -9,6 +9,30 @@
     <language>en</language>
     <!-- BEGIN-ITEMS (release.sh inserts new entries here, newest first) -->
     <item>
+      <title>v2.10.0</title>
+      <pubDate>Fri, 30 Oct 2026 01:03:06 +0000</pubDate>
+      <sparkle:version>29</sparkle:version>
+      <sparkle:shortVersionString>2.10.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <description xml:lang="en"><![CDATA[
+<h4>New</h4>
+<ul>
+<li><strong>See whether each note has synced</strong> — with sync on, every note now shows its sync status: on a sticky note it sits to the left of the reminder bell, and in Manage All Notes it is in the toolbar for the selected note. After you edit, it shows “Waiting to sync”, then “Uploading to iCloud Drive”, then a green check once the upload is done — your other Macs receive the change automatically from there. On a sticky note the check shows for a few seconds and then hides; move the pointer over the note to see the status again. If a change could not be sent, an orange icon stays on the note.</li>
+<li>Click the icon to see what the status means, the reason for an error, and when the note last synced. The status covers the note and the images in it.</li>
+</ul>
+<p><a href="https://github.com/xVanTuring/Perch/releases/tag/v2.10.0">View full release on GitHub →</a></p>
+      ]]></description>
+      <description xml:lang="zh"><![CDATA[
+<h4>新功能</h4>
+<ul>
+<li><strong>能看到每条便签有没有同步</strong> —— 打开同步后，每条便签都会显示同步状态：浮窗上在提醒铃铛的左边，「管理所有便签」里在工具栏上（显示选中的那条）。改完后依次显示「等待同步」「正在上传到 iCloud 云盘」，上传完成后变成绿色对勾，其他 Mac 随后会自动收到。浮窗上的对勾显示几秒后隐去，鼠标移到便签上可以再看到。修改没能发出去时，便签上会一直显示橙色图标。</li>
+<li>点图标可以看到状态说明、出错原因和上次同步的时间。状态包括便签本身和其中的图片。</li>
+</ul>
+<p><a href="https://github.com/xVanTuring/Perch/releases/tag/v2.10.0">在 GitHub 查看完整更新 →</a></p>
+      ]]></description>
+      <enclosure url="https://github.com/xVanTuring/Perch/releases/download/v2.10.0/Perch-2.10.0.zip" length="9660677" type="application/octet-stream" sparkle:edSignature="HFkjyiDvMbvpWPcXD+t+NZvJcJHiquExnxKzgqbYqRSLq6oXopyZdYvpoeIOpOu4D3EmEt982LtkSb1FXnYsBQ==" />
+    </item>
+    <item>
       <title>v2.9.0</title>
       <pubDate>Thu, 29 Oct 2026 14:28:46 +0000</pubDate>
       <sparkle:version>28</sparkle:version>
