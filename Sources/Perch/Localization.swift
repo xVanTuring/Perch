@@ -56,7 +56,7 @@ enum LocKey: String {
     // MenuBar
     case menuNewNote, menuShowAllStickies, menuHideAllStickies
     case menuManageAllNotes, menuSettings, menuFloatOnTop, menuLayout, menuQuit
-    case menuHidePerch
+    case menuHidePerch, menuFind, menuFindNext, menuFindPrevious
     case menuMoveAllToDisplay
     case menuDisplay
     case menuUpdateAvailable
@@ -112,7 +112,9 @@ enum LocKey: String {
     case shortcutQuickCapture, shortcutManageNotes, shortcutOpenSettings
     case shortcutNewNote, shortcutCloseWindow, shortcutDeleteNote
     case shortcutQuit, shortcutsRoadmap
-    case shortcutHide
+    case shortcutHide, shortcutFind, shortcutFindNextPrevious
+    // 笔记内查找栏(见 NoteFindBar)
+    case findPlaceholder, findNoResults, findClose
     case shortcutResizeCycle, shortcutToggleFloatOnTop
 
     // Settings Permissions
@@ -370,6 +372,10 @@ enum L {
         .shortcutQuit: "Quit",
         .shortcutHide: "Hide Perch (stickies stay)",
         .menuHidePerch: "Hide Perch",
+        .menuFind: "Find…", .menuFindNext: "Find Next", .menuFindPrevious: "Find Previous",
+        .shortcutFind: "Find in Note",
+        .shortcutFindNextPrevious: "Find Next / Previous",
+        .findPlaceholder: "Find in note", .findNoResults: "No results", .findClose: "Close",
         .shortcutsRoadmap: "Customizing shortcuts is on the roadmap.",
         .shortcutResizeCycle: "Cycle Note Size (S → M → L)",
         .shortcutToggleFloatOnTop: "Toggle Float on Top",
@@ -724,6 +730,10 @@ enum L {
         .shortcutQuit: "退出",
         .shortcutHide: "隐藏 Perch(便签保留)",
         .menuHidePerch: "隐藏 Perch",
+        .menuFind: "查找…", .menuFindNext: "查找下一个", .menuFindPrevious: "查找上一个",
+        .shortcutFind: "在笔记中查找",
+        .shortcutFindNextPrevious: "查找下一个 / 上一个",
+        .findPlaceholder: "在笔记中查找", .findNoResults: "无结果", .findClose: "关闭",
         .shortcutsRoadmap: "自定义快捷键将在后续版本支持。",
         .shortcutResizeCycle: "循环切换便签尺寸(小 → 中 → 大)",
         .shortcutToggleFloatOnTop: "切换悬浮置顶",

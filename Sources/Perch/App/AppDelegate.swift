@@ -5,7 +5,7 @@ import CoreSpotlight
 import KeyboardShortcuts
 
 @main
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     /// 自己写 entry point。**不用 SwiftUI `@main struct ... : App`** —— 那条路要求
     /// body 至少一个 Scene,而 `Settings { ... }` scene 会抢 ⌘, 快捷键(SwiftUI 用
     /// 私有机制绑,优先级高于我们 NSApp.mainMenu 里的菜单项,replace mainMenu 也
@@ -325,7 +325,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem(title: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a"))
 
+        menu.addItem(.separator())
+
+        // 笔记内查找,见 NoteFindController。target 是 self 而不是 first responder:
+        // 引擎的文本视图不实现这些动作,要由 key window 反查到编辑器。
+        let findItem = NSMenuItem(title: L.t(.menuFind), action: #selector(findInNoteAction(_:)), keyEquivalent: "f")
+        let findNextItem = NSMenuItem(title: L.t(.menuFindNext), action: #selector(findNextAction(_:)), keyEquivalent: "g")
+        let findPreviousItem = NSMenuItem(title: L.t(.menuFindPrevious), action: #selector(findPreviousAction(_:)), keyEquivalent: "g")
+        findPreviousItem.keyEquivalentModifierMask = [.command, .shift]
+        for item in [findItem, findNextItem, findPreviousItem] {
+            item.target = self
+            menu.addItem(item)
+        }
+
         return menu
+    }
+
+    @objc private func findInNoteAction(_ sender: Any?) {
+        NoteFindController.forKeyWindow?.show()
+    }
+
+    @objc private func findNextAction(_ sender: Any?) {
+        NoteFindController.forKeyWindow?.stepOrShow(1)
+    }
+
+    @objc private func findPreviousAction(_ sender: Any?) {
+        NoteFindController.forKeyWindow?.stepOrShow(-1)
+    }
+
+    /// 查找项只在 key window 里有笔记编辑器时可用。
+    func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        switch item.action {
+        case #selector(findInNoteAction(_:)), #selector(findNextAction(_:)), #selector(findPreviousAction(_:)):
+            return NoteFindController.forKeyWindow != nil
+        default:
+            return true
+        }
     }
 
     @objc private func openSettings() {

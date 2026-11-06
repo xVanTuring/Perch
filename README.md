@@ -49,6 +49,7 @@ icon — it lives in the menu bar and stays out of the way until you need it.
   bold/italic, lists, quotes); no mode switching, no double-click to edit. Plain
   text just works too — no markup means no styling.
 - Syntax-highlighted code blocks, inline images, and LaTeX math.
+- **Find in note** (`⌘F`, next / previous with `⌘G` / `⌘⇧G`), in stickies and the Manager.
 - **Task lists** (`- [ ]` / `- [x]`) show a live completion pie on the note's
   title bar and in the Manager list.
 - Global font size (12–24, applied live to every open window).

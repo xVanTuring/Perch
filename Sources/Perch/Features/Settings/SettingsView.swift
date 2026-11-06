@@ -765,13 +765,15 @@ struct ShortcutsTab: View {
                 row(action: L.t(.shortcutNewNote),       shortcut: "⌘N")
                 row(action: L.t(.shortcutCloseWindow),   shortcut: "⌘W")
                 row(action: L.t(.shortcutDeleteNote),    shortcut: "⌘D")
+                row(action: L.t(.shortcutFind),          shortcut: "⌘F")
+                row(action: L.t(.shortcutFindNextPrevious), shortcut: "⌘G / ⌘⇧G")
                 row(action: L.t(.shortcutHide),          shortcut: "⌘H")
                 row(action: L.t(.shortcutQuit),          shortcut: "⌘Q")
             }
         }
         .formStyle(.grouped)
         .scrollDisabled(true)
-        .frame(width: 760,height: 470)
+        .frame(width: 760,height: 590)
     }
 
     private func row(action: String, shortcut: String) -> some View {

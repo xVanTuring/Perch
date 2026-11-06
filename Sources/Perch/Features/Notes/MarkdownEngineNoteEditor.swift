@@ -41,14 +41,22 @@ struct MarkdownEngineNoteEditor: View {
     /// 右键「格式」菜单 + 它的通知名。引擎已不再自带这个菜单,见 NoteFormatMenu。
     private var formatMenu: NoteFormatMenu { NoteFormatMenu(documentId: documentId) }
 
+    /// ⌘F 查找。body 不读它的属性,所以查找栏的变化不会重算这里,见 NoteFindController。
+    @State private var find = NoteFindController()
+
     private var configuration: MarkdownEditorConfiguration {
         var config = MarkdownEditorConfiguration.default
+        var bus = formatMenu.bus
+        find.wire(into: &bus)
         config.services = MarkdownEditorServices(
             images: images,
             syntaxHighlighter: Self.sharedHighlighter,
             latex: Self.sharedLatex,
-            bus: formatMenu.bus
+            bus: bus
         )
+        config.theme.findMatchHighlight = NoteFindController.matchColor
+        config.theme.findCurrentMatchHighlight = NoteFindController.currentMatchColor
+        config.markers.findMatchHighlightAlpha = NoteFindController.matchAlpha
         // 列表每级缩进。engine 默认 27.5pt 是给宽编辑器调的;便签窗很窄,
         // 列表项(尤其嵌套/换行 hang)左边空白显得太大。收紧到 16pt。
         config.lists.indentPerLevel = 16
@@ -74,20 +82,25 @@ struct MarkdownEngineNoteEditor: View {
         let format = formatMenu
         // 粘贴的图片记在当前便签名下,便签被永久删除时据此清理图片。
         let ownerNoteID = UUID(uuidString: documentId)
-        NativeTextViewWrapper(
-            text: $text,
-            configuration: configuration,
-            fontName: "SF Pro",
-            fontSize: CGFloat(noteFontSize),
-            documentId: documentId,
-            isEditable: true,
-            // 粘贴板里有图片就复制进内部存储并插入 `![[名称|UUID]]`;否则返回 nil,
-            // 引擎照常按文本粘贴。见 NoteImagePaste。
-            onPasteImage: { NoteImagePaste.embed(from: $0, ownerNoteID: ownerNoteID) },
-            onBuildContextMenu: { menu, _ in format.decorate(menu) },
-            // 表格单元格里的右键。引擎不自带表格菜单,标题和语言由 TableEditMenu 出
-            // (引擎那份资源包跟不了 Perch 的运行时语言,见那里的注释)。
-            onTableCellContextMenu: { menu, context in TableEditMenu.decorate(menu, context: context) }
-        )
+        VStack(spacing: 0) {
+            NoteFindBar(find: find)
+            NativeTextViewWrapper(
+                text: $text,
+                configuration: configuration,
+                fontName: "SF Pro",
+                fontSize: CGFloat(noteFontSize),
+                documentId: documentId,
+                isEditable: true,
+                // 粘贴板里有图片就复制进内部存储并插入 `![[名称|UUID]]`;否则返回 nil,
+                // 引擎照常按文本粘贴。见 NoteImagePaste。
+                onPasteImage: { NoteImagePaste.embed(from: $0, ownerNoteID: ownerNoteID) },
+                onBuildContextMenu: { menu, _ in format.decorate(menu) },
+                // 表格单元格里的右键。引擎不自带表格菜单,标题和语言由 TableEditMenu 出
+                // (引擎那份资源包跟不了 Perch 的运行时语言,见那里的注释)。
+                onTableCellContextMenu: { menu, context in TableEditMenu.decorate(menu, context: context) }
+            )
+            .background(NoteFindWindowAnchor(find: find))
+            .onChange(of: text) { find.noteTextChanged() }
+        }
     }
 }

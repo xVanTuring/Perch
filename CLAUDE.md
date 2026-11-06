@@ -45,7 +45,7 @@ Sources/Perch/
 │  │                       StickyPalette)
 │  ├─ Notes/             # MarkdownEngineNoteEditor (the one editor), NoteFormatMenu
 │  │                       (right-click Format), TableEditMenu (right-click a table
-│  │                       cell), Images/ (see "Note images")
+│  │                       cell), NoteFind (⌘F bar), Images/ (see "Note images")
 │  ├─ Capture/           # Quick-capture window + Carbon global hotkey
 │  ├─ Manager/           # Centralized management window (NavigationSplitView)
 │  └─ Settings/          # NSTabViewController-based settings + SwiftUI tabs
@@ -127,7 +127,10 @@ the old CloudKit `iCloudSyncEnabled`). Folder defaults to iCloud Drive/Perch.
   the real instance), `PERCH_SYNC_DIR` (folder, forces sync on), `PERCH_DEMO_DATA=1`,
   `PERCH_SYNC_QUIET=1` (no first-sync alert), `PERCH_SYNC_REMOVE_DEVICE=<id>`.
   Launch with `-Perch.mcpServerEnabled NO` so a test instance doesn't fight for the
-  MCP port. UserDefaults are still shared with the real instance.
+  MCP port. UserDefaults are still shared with the real instance, **including the sync
+  switch: `PERCH_DATA_DIR` without `PERCH_SYNC_DIR` joins the real iCloud folder and
+  exports its whole store** (happened 2026-11-06). Always set both, and check the
+  `Perch sync: started … folder` log line. Spotlight is shared too (same bundle id).
 
 ## Schema → CloudKit deployment workflow
 
@@ -266,6 +269,26 @@ Pasted images and `![alt](https://…)` images, rendered by the engine through o
   file-drag types itself and has no hook — needs an engine change), and Markdown export
   including images (should export to a folder with the images beside the notes).
 
+## Find in note (⌘F)
+
+`NoteFindController` + `NoteFindBar` (`Features/Notes/NoteFind.swift`), mounted inside
+`MarkdownEngineNoteEditor`, so stickies and the Manager detail both get it. Matching and
+highlighting are the engine's (`MarkdownEditorBus.findQuery`).
+
+- **Notification names carry an instance id, not `documentId`**: one note can be open in a
+  sticky and the Manager at once. ⌘F arrives through the main menu, and
+  `NoteFindController.forKeyWindow` finds the editor from `NSApp.keyWindow`.
+- **Keep it `@Observable` and keep its properties out of `MarkdownEngineNoteEditor.body`**,
+  so typing in the bar doesn't run the editor's `updateNSView` (that disturbs the IME).
+- **Don't re-search when the note text changes**: the engine scrolls to the current match
+  on every query, which would drag the view away from where the user is typing. The
+  highlights are dropped instead and the next ⌘G / Return searches again.
+- **The engine searches the raw text, hidden parts included.** A match inside a collapsed
+  link URL or image reference counts but shows no highlight, and a phrase across a hidden
+  marker (`hello **world**` for "hello world") isn't found. Filtering by the `.clear`
+  foreground isn't enough: table source is hidden the same way while its text is visible in
+  the rendered table. A real fix belongs in the engine fork.
+
 ## Window framing
 
 - Sticky positions/sizes persisted on each `Note` (`frameX/Y/W/H + hasSavedFrame`).
@@ -299,6 +322,9 @@ sqlite3 "$HOME/Library/Application Support/Perch/Perch.sqlite" \
 - **`SourceKit "Cannot find type"` errors on every save are noise** for this
   project (programmatic model, single-module). Trust `xcodebuild` output, not
   inline diagnostics.
+- **Activating a hidden app brings back every window `NSApp.hide` put away**, and clicking
+  a sticky activates the app. So ⌘H orders the Manager and Settings out first
+  (`AppDelegate.hidePerchAction`); stickies stay through `canHide = false`.
 - **`window.performClose(nil)` is a no-op on borderless windows** (no
   `.closable` styleMask). Use `window.close()` directly.
 - **`NSHostingController` shrinks its host `NSWindow` to the SwiftUI view's
