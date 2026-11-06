@@ -50,6 +50,11 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         self.window = w
     }
 
+    /// ⌘H 用,见 AppDelegate.hidePerchAction。只从屏幕上拿走,不关窗。
+    func orderOut() {
+        window?.orderOut(nil)
+    }
+
     private func makeTabController() -> AnimatedSettingsTabController {
         let tabVC = AnimatedSettingsTabController()
         tabVC.tabStyle = .toolbar

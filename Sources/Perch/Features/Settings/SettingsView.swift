@@ -765,6 +765,7 @@ struct ShortcutsTab: View {
                 row(action: L.t(.shortcutNewNote),       shortcut: "⌘N")
                 row(action: L.t(.shortcutCloseWindow),   shortcut: "⌘W")
                 row(action: L.t(.shortcutDeleteNote),    shortcut: "⌘D")
+                row(action: L.t(.shortcutHide),          shortcut: "⌘H")
                 row(action: L.t(.shortcutQuit),          shortcut: "⌘Q")
             }
         }

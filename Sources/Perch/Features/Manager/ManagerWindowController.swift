@@ -78,6 +78,11 @@ final class ManagerWindowController: NSObject, NSWindowDelegate {
         applyActivationPolicy()
     }
 
+    /// ⌘H 用,见 AppDelegate.hidePerchAction。只从屏幕上拿走,不关窗。
+    func orderOut() {
+        window?.orderOut(nil)
+    }
+
     func windowWillClose(_ notification: Notification) {
         // 释放 SwiftUI 视图树,下次 show 重建。NSHostingController 会持有 FetchRequest
         // 订阅,不释放会重复占内存。

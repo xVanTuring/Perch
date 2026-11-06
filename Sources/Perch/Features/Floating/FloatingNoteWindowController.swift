@@ -210,6 +210,8 @@ final class FloatingNoteWindowController: NSObject, NSWindowDelegate {
         w.onDeleteShortcut = { [weak self] in self?.onRequestDelete() }
         w.level = initialLevel
         w.collectionBehavior = initialCollectionBehavior
+        // ⌘H 隐藏 App 时便签留在桌面上,见 AppDelegate.hidePerchAction。
+        w.canHide = false
         w.isMovableByWindowBackground = true
         w.isOpaque = false
         w.backgroundColor = .clear

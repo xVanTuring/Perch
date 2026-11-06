@@ -56,6 +56,7 @@ enum LocKey: String {
     // MenuBar
     case menuNewNote, menuShowAllStickies, menuHideAllStickies
     case menuManageAllNotes, menuSettings, menuFloatOnTop, menuLayout, menuQuit
+    case menuHidePerch
     case menuMoveAllToDisplay
     case menuDisplay
     case menuUpdateAvailable
@@ -111,6 +112,7 @@ enum LocKey: String {
     case shortcutQuickCapture, shortcutManageNotes, shortcutOpenSettings
     case shortcutNewNote, shortcutCloseWindow, shortcutDeleteNote
     case shortcutQuit, shortcutsRoadmap
+    case shortcutHide
     case shortcutResizeCycle, shortcutToggleFloatOnTop
 
     // Settings Permissions
@@ -366,6 +368,8 @@ enum L {
         .shortcutCloseWindow: "Close Window",
         .shortcutDeleteNote: "Delete Floating Note",
         .shortcutQuit: "Quit",
+        .shortcutHide: "Hide Perch (stickies stay)",
+        .menuHidePerch: "Hide Perch",
         .shortcutsRoadmap: "Customizing shortcuts is on the roadmap.",
         .shortcutResizeCycle: "Cycle Note Size (S → M → L)",
         .shortcutToggleFloatOnTop: "Toggle Float on Top",
@@ -718,6 +722,8 @@ enum L {
         .shortcutCloseWindow: "关闭窗口",
         .shortcutDeleteNote: "删除当前便签(浮窗)",
         .shortcutQuit: "退出",
+        .shortcutHide: "隐藏 Perch(便签保留)",
+        .menuHidePerch: "隐藏 Perch",
         .shortcutsRoadmap: "自定义快捷键将在后续版本支持。",
         .shortcutResizeCycle: "循环切换便签尺寸(小 → 中 → 大)",
         .shortcutToggleFloatOnTop: "切换悬浮置顶",

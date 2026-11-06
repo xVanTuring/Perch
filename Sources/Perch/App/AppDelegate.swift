@@ -210,6 +210,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         appMenu.addItem(.separator())
 
+        // ⌘H。没有这一项时按键没有任何接收者,按了什么都不发生。
+        let hideItem = NSMenuItem(
+            title: L.t(.menuHidePerch),
+            action: #selector(hidePerchAction(_:)),
+            keyEquivalent: "h"
+        )
+        hideItem.target = self
+        appMenu.addItem(hideItem)
+
+        appMenu.addItem(.separator())
+
         let quitItem = NSMenuItem(
             title: "Quit Perch",
             action: #selector(NSApplication.terminate(_:)),
@@ -319,6 +330,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openSettings() {
         settings.showWindow()
+    }
+
+    /// ⌘H:收起管理 / 设置窗口,把焦点还给上一个 App,便签留在桌面上
+    /// (它们设了 `canHide = false`,见 FloatingNoteWindowController)。
+    ///
+    /// **这两个窗口必须先 orderOut**:App 一被激活系统就取消隐藏,被 hide 收起的窗口
+    /// 全部回来。而点一下便签就会激活 App,不先收走的话管理窗口会跟着弹出来。收走之后
+    /// 只有明确打开才回来(⌘⇧0、菜单栏、Dock 图标),窗口对象和里面的状态都还在。
+    @objc private func hidePerchAction(_ sender: Any?) {
+        manager.orderOut()
+        settings.orderOut()
+        NSApp.hide(sender)
     }
 
     /// ⌘N 全局入口。无论当前 key window 是浮窗 / Manager / Capture / Settings,
