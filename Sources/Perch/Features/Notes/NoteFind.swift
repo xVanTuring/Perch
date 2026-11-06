@@ -27,6 +27,8 @@ final class NoteFindController {
     @ObservationIgnored private let instanceID = UUID().uuidString
     @ObservationIgnored private weak var window: NSWindow?
     @ObservationIgnored private var resultsObserver: NSObjectProtocol?
+    /// 展开折叠内容之前的选区,见 `revealCurrentMatch(at:)`。nil = 现在没有展开着的。
+    @ObservationIgnored private var selectionBeforeReveal: NSRange?
 
     /// 活着的查找控制器。⌘F 来自主菜单,靠这张表找到 key window 里的那个编辑器。
     private static let live = NSHashTable<NoteFindController>.weakObjects()
@@ -88,12 +90,18 @@ final class NoteFindController {
     func close() {
         guard isVisible else { return }
         let editor = self.editor
-        let match = editor.flatMap(currentMatch(in:))
+        let hasMatch = (matchCount ?? 0) > 0
+        let match = hasMatch ? editor.flatMap { self.match(at: currentIndex, in: $0) } : nil
         isVisible = false
         matchCount = nil
         clearHighlights()
         guard let editor else { return }
-        if let match { editor.setSelectedRange(match) }
+        if let match {
+            selectionBeforeReveal = nil
+            editor.setSelectedRange(match)
+        } else {
+            restoreSelection(in: editor)
+        }
         window?.makeFirstResponder(editor)
     }
 
@@ -104,6 +112,7 @@ final class NoteFindController {
         if text.isEmpty {
             matchCount = nil
             clearHighlights()
+            if let editor { restoreSelection(in: editor) }
         } else {
             search(at: 0)
         }
@@ -127,6 +136,8 @@ final class NoteFindController {
     /// 正文变了:手动打字、同步、MCP 都走这里。高亮已经对不上,撤掉等下一次搜索。
     /// 这里不能直接重搜 —— 引擎每次搜索都会滚到当前匹配,用户在别处打字时视图会被拽走。
     func noteTextChanged() {
+        // 记下的位置已经对不上了,而且用户正在改,选区该留在他手里。
+        selectionBeforeReveal = nil
         guard isVisible, matchCount != nil else { return }
         matchCount = nil
         clearHighlights()
@@ -134,6 +145,8 @@ final class NoteFindController {
 
     private func search(at index: Int) {
         currentIndex = index
+        // 要在发查询之前:展开时引擎会重排那一段,冲掉上面已有的高亮。
+        revealCurrentMatch(at: index)
         NotificationCenter.default.post(
             name: name("query"), object: nil,
             userInfo: ["query": query, "currentIndex": index]
@@ -161,21 +174,47 @@ final class NoteFindController {
         return window?.contentView.flatMap(search)
     }
 
-    /// 当前匹配在显示文本里的位置。引擎不回传位置,只能再数一遍,所以匹配选项和步进
-    /// 必须和引擎的 `findMatches` 一致,否则下标对不上。
-    private func currentMatch(in editor: NSTextView) -> NSRange? {
-        guard let count = matchCount, count > 0 else { return nil }
+    /// 第 `target` 个匹配在显示文本里的位置。引擎不回传位置,只能再数一遍,所以匹配选项
+    /// 和步进必须和引擎的 `findMatches` 一致,否则下标对不上。
+    private func match(at target: Int, in editor: NSTextView) -> NSRange? {
         let text = editor.string as NSString
         var start = 0
-        for index in 0...currentIndex {
+        for index in 0...target {
             guard start < text.length else { return nil }
             let scope = NSRange(location: start, length: text.length - start)
             let found = text.range(of: query, options: [.caseInsensitive, .diacriticInsensitive], range: scope)
             guard found.location != NSNotFound else { return nil }
-            if index == currentIndex { return found }
+            if index == target { return found }
             start = found.location + max(found.length, 1)
         }
         return nil
+    }
+
+    /// 当前匹配落在折叠的内容里(链接地址、图片引用)时把它展开,否则这个匹配看不见。
+    /// 引擎会展开选区起点所在的那段源码,不要求编辑器有焦点,所以焦点留在查找框里就行。
+    /// 换到别的匹配时选区还原,那段再折回去。普通文字里的匹配不动选区,否则每跳一次
+    /// `**`、`#` 这些标记都会冒出来。
+    ///
+    /// **这里必须选中整个匹配,不能只放光标**:空光标落进表格会打开单元格编辑器,把焦点
+    /// 从查找框抢走。表格本身不参与展开,选中了也只是原样显示。
+    private func revealCurrentMatch(at index: Int) {
+        guard let editor else { return }
+        restoreSelection(in: editor)
+        guard let match = match(at: index, in: editor), isFolded(match, in: editor) else { return }
+        selectionBeforeReveal = editor.selectedRange()
+        editor.setSelectedRange(match)
+    }
+
+    private func restoreSelection(in editor: NSTextView) {
+        guard let saved = selectionBeforeReveal else { return }
+        selectionBeforeReveal = nil
+        editor.setSelectedRange(saved)
+    }
+
+    /// 引擎隐藏文字的方式:前景色设成 clear,再缩到极小字号。
+    private func isFolded(_ range: NSRange, in editor: NSTextView) -> Bool {
+        let color = editor.textStorage?.attribute(.foregroundColor, at: range.location, effectiveRange: nil)
+        return (color as? NSColor) == .clear
     }
 
     // MARK: 高亮颜色

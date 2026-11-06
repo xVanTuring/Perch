@@ -283,11 +283,18 @@ highlighting are the engine's (`MarkdownEditorBus.findQuery`).
 - **Don't re-search when the note text changes**: the engine scrolls to the current match
   on every query, which would drag the view away from where the user is typing. The
   highlights are dropped instead and the next ⌘G / Return searches again.
-- **The engine searches the raw text, hidden parts included.** A match inside a collapsed
-  link URL or image reference counts but shows no highlight, and a phrase across a hidden
+- **The engine searches the raw text, hidden parts included.** When the current match is in
+  folded text (link URL, image reference), `revealCurrentMatch` selects it: the engine
+  expands the token at the selection start, focus or not, and it folds again on the next
+  match. **It has to be a selection, not an empty caret**: a caret in a table opens the cell
+  editor with the cell selected, taking focus from the find field, so the next keystroke
+  would overwrite the cell. The price is that the gray inactive selection covers the orange
+  there. Nothing public tells a table from an image (same collapsed mode), so "caret unless
+  table" isn't possible from Perch.
+- **Still open, belongs in the engine fork**: other folded matches stay invisible until they
+  become current, a match in a rendered table gets no highlight, and a phrase across a hidden
   marker (`hello **world**` for "hello world") isn't found. Filtering by the `.clear`
-  foreground isn't enough: table source is hidden the same way while its text is visible in
-  the rendered table. A real fix belongs in the engine fork.
+  foreground isn't enough: table source is hidden the same way while its text is visible.
 
 ## Window framing
 
