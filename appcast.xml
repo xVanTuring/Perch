@@ -9,6 +9,38 @@
     <language>en</language>
     <!-- BEGIN-ITEMS (release.sh inserts new entries here, newest first) -->
     <item>
+      <title>v2.11.0</title>
+      <pubDate>Sat, 07 Nov 2026 09:52:19 +0000</pubDate>
+      <sparkle:version>30</sparkle:version>
+      <sparkle:shortVersionString>2.11.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+      <description xml:lang="en"><![CDATA[
+<h4>New</h4>
+<ul>
+<li><strong>Find in a note</strong> — press ⌘F to open a find bar above the note, on sticky notes and in Manage All Notes. Return or ⌘G goes to the next match, ⇧Return or ⌘⇧G to the previous one. Esc closes the bar and keeps the current match selected, so you can start typing right there.</li>
+<li>Matches inside a link address or an image reference are found too: the hidden text opens up while that match is the current one, and folds again when you move on.</li>
+</ul>
+<h4>Fixes</h4>
+<ul>
+<li><strong>⌘H now hides Perch</strong> — it did nothing before. It puts away Manage All Notes and Settings and returns you to the previous app; sticky notes stay on the desktop.</li>
+</ul>
+<p><a href="https://github.com/xVanTuring/Perch/releases/tag/v2.11.0">View full release on GitHub →</a></p>
+      ]]></description>
+      <description xml:lang="zh"><![CDATA[
+<h4>新功能</h4>
+<ul>
+<li><strong>在便签内查找</strong> —— 按 ⌘F 在便签上方打开查找栏，浮窗和「管理所有便签」里都可以用。回车或 ⌘G 跳到下一处，⇧回车或 ⌘⇧G 跳到上一处。按 Esc 关闭查找栏，当前匹配保持选中，可以接着输入。</li>
+<li>链接地址和图片引用里的内容也能找到：跳到这样的匹配时，隐藏的文字会展开，跳到下一处后再收起。</li>
+</ul>
+<h4>修复</h4>
+<ul>
+<li><strong>⌘H 现在可以隐藏 Perch</strong> —— 之前按了没有反应。现在会收起「管理所有便签」和设置窗口，并回到之前使用的应用；浮窗便签仍留在桌面上。</li>
+</ul>
+<p><a href="https://github.com/xVanTuring/Perch/releases/tag/v2.11.0">在 GitHub 查看完整更新 →</a></p>
+      ]]></description>
+      <enclosure url="https://github.com/xVanTuring/Perch/releases/download/v2.11.0/Perch-2.11.0.zip" length="9702881" type="application/octet-stream" sparkle:edSignature="FZOTKuAZ0WgrnyF2H+zbm25hSB3n/3/tW4Um070YnWKlZDj8m44gZaoVf6+LvV6fiDfSFBvJwlfAW0PMmk2rDw==" />
+    </item>
+    <item>
       <title>v2.10.0</title>
       <pubDate>Fri, 30 Oct 2026 01:03:06 +0000</pubDate>
       <sparkle:version>29</sparkle:version>
