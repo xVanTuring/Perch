@@ -390,6 +390,7 @@ struct GeneralTab: View {
                 Text(L.t(.langFollowSystem)).tag(AppLanguage.system)
                 Text(L.t(.langEnglish)).tag(AppLanguage.english)
                 Text(L.t(.langChinese)).tag(AppLanguage.chinese)
+                Text(L.t(.langJapanese)).tag(AppLanguage.japanese)
             }
             .pickerStyle(.menu)
 

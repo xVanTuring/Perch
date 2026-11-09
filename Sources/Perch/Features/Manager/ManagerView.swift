@@ -942,10 +942,11 @@ private struct TrashRow: View {
         guard let when = note.trashedAt else { return L.t(.trashTitle) }
         let formatter = RelativeDateTimeFormatter()
         // RelativeDateTimeFormatter 跟 LocalizationManager 选的语言对齐 ——
-        // .system 退回 Locale.current,显式选英/中则强制用对应 locale。
+        // .system 退回 Locale.current,显式选英/中/日则强制用对应 locale。
         switch LocalizationManager.shared.effective {
         case .english: formatter.locale = Locale(identifier: "en")
         case .chinese: formatter.locale = Locale(identifier: "zh-Hans")
+        case .japanese: formatter.locale = Locale(identifier: "ja")
         case .system:  break
         }
         formatter.unitsStyle = .full
@@ -1057,6 +1058,7 @@ private struct ArchiveRow: View {
         switch LocalizationManager.shared.effective {
         case .english: formatter.locale = Locale(identifier: "en")
         case .chinese: formatter.locale = Locale(identifier: "zh-Hans")
+        case .japanese: formatter.locale = Locale(identifier: "ja")
         case .system:  break
         }
         formatter.unitsStyle = .full
